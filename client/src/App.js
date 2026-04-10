@@ -3,55 +3,52 @@ import './App.css';
 
 const App = () => {
     const [resumeData, setResumeData] = useState({
-        name: '', email: '', linkedin: '', github: '',
-        education: [{ school: '', degree: '', info: '', location: '', date: '' }],
-        experience: [{ title: '', company: '', date: '', desc: '' }],
-        skills: ''
+        name: '', email: '', skills: '', education: [{ school: '', degree: '', location: '', date: '' }]
     });
 
-    const handleUpdate = (path, value) => {
-        setResumeData(prev => ({ ...prev, [path]: value }));
+    const updateField = (field, value) => {
+        setResumeData({ ...resumeData, [field]: value });
     };
 
     return (
         <div className="container">
+            {/* Editor Panel */}
             <div className="editor no-print">
-                <h2>Resume Architect</h2>
-                <input placeholder="Full Name" onChange={(e) => handleUpdate('name', e.target.value)} />
-                <input placeholder="Email" onChange={(e) => handleUpdate('email', e.target.value)} />
-                <textarea placeholder="Technical Skills" onChange={(e) => handleUpdate('skills', e.target.value)} />
-                <button className="magic-btn">AI Optimize (Week 2)</button>
+                <h2 style={{fontFamily: 'sans-serif'}}>Resume Architect</h2>
+                <input placeholder="Full Name" onChange={(e) => updateField('name', e.target.value)} />
+                <input placeholder="Email" onChange={(e) => updateField('email', e.target.value)} />
+                <textarea placeholder="Technical Skills" rows="5" onChange={(e) => updateField('skills', e.target.value)} />
+                <button className="magic-btn" style={{padding: '12px', cursor: 'pointer', background: '#2c3e50', color: 'white', border: 'none', borderRadius: '4px'}}>
+                    AI Optimize (Week 2)
+                </button>
             </div>
 
+            {/* LaTeX Preview Panel */}
             <div className="preview latex-font">
-                <div className="resume-header">
-                    <h1>{resumeData.name || "YOUR NAME"}</h1>
-                    <div className="contact-info">
-                        {resumeData.email && <span>{resumeData.email}</span>}
-                        {resumeData.linkedin && <span> | {resumeData.linkedin}</span>}
-                        {resumeData.github && <span> | {resumeData.github}</span>}
+                <div className="resume-paper">
+                    <div className="resume-header">
+                        <h1>{resumeData.name || "YOUR NAME"}</h1>
+                        <p>{resumeData.email}</p>
                     </div>
-                </div>
 
-                <div className="section">
-                    <h2 className="section-title">EDUCATION</h2>
-                    {resumeData.education.map((edu, i) => (
-                        <div key={i} className="entry">
+                    <div className="section">
+                        <div className="section-title">EDUCATION</div>
+                        <div className="entry">
                             <div className="entry-header">
-                                <strong>{edu.school || "University Name"}</strong>
-                                <span>{edu.location || "City, Country"}</span>
+                                <strong>University Name</strong>
+                                <span>City, Country</span>
                             </div>
                             <div className="entry-sub">
-                                <em>{edu.degree || "Degree"}</em>
-                                <span>{edu.date || "Date Range"}</span>
+                                <em>Degree / Specialization</em>
+                                <span>Date Range</span>
                             </div>
                         </div>
-                    ))}
-                </div>
+                    </div>
 
-                <div className="section">
-                    <h2 className="section-title">TECHNICAL SKILLS</h2>
-                    <p>{resumeData.skills || "Add your skills in the editor..."}</p>
+                    <div className="section">
+                        <div className="section-title">TECHNICAL SKILLS</div>
+                        <p style={{marginTop: '5px'}}>{resumeData.skills || "Add your skills in the editor..."}</p>
+                    </div>
                 </div>
             </div>
         </div>
