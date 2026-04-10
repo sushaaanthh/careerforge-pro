@@ -1,0 +1,19 @@
+services:
+  backend:
+    build: ./server
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    env_file: .env
+
+  frontend:
+    build: ./client
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    stdin_open: true
+    tty: true
