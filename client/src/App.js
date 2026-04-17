@@ -1,19 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
 
 const App = () => {
     const [resumeData, setResumeData] = useState({
-    name: '', email: '', 
-    education: [{ school: '', city: '', country: '', degree: '', grades: '', date: '' }],
-    experience: [{ company: '', role: '', date: '', desc: '' }],
-    projects: [{ name: '', desc: '' }],
-    skills: [
-        { category: '', items: '' },
-        { category: '', items: '' },
-        { category: '', items: '' }
-    ]
+        name: '', email: '', 
+        education: [{ school: '', city: '', country: '', degree: '', grades: '', date: '' }],
+        experience: [{ company: '', role: '', date: '', desc: '' }],
+        projects: [{ name: '', desc: '' }],
+        skills: [{ category: '', items: '' }]
     });
 
+    // New State for ATS Tracking
+    const [jobDescription, setJobDescription] = useState('');
+    const [targetKeywords, setTargetKeywords] = useState([]);
+    const [atsScore, setAtsScore] = useState(0);
+    const [isAnalyzingJD, setIsAnalyzingJD] = useState(false);
     const [isOptimizing, setIsOptimizing] = useState({ section: null, index: null });
 
     const addEntry = (section, template) => {
@@ -26,6 +27,49 @@ const App = () => {
         setResumeData({ ...resumeData, [section]: updatedSection });
     };
 
+    // Calculate ATS Score whenever resumeData or targetKeywords change
+    useEffect(() => {
+        if (targetKeywords.length === 0) {
+            setAtsScore(0);
+            return;
+        }
+
+        const fullResumeText = JSON.stringify(resumeData).toLowerCase();
+        let matches = 0;
+
+        targetKeywords.forEach(keyword => {
+            if (fullResumeText.includes(keyword.toLowerCase())) {
+                matches++;
+            }
+        });
+
+        const score = Math.round((matches / targetKeywords.length) * 100);
+        setAtsScore(score);
+    }, [resumeData, targetKeywords]);
+
+    // Fetch Keywords from Backend
+    const handleAnalyzeJD = async () => {
+        if (!jobDescription.trim()) return;
+        setIsAnalyzingJD(true);
+        try {
+            const response = await fetch("http://127.0.0.1:5000/api/analyze-jd", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ jdText: jobDescription })
+            });
+            const data = await response.json();
+            if (response.ok && data.keywords) {
+                setTargetKeywords(data.keywords);
+            } else {
+                alert("Failed to analyze JD.");
+            }
+        } catch (error) {
+            alert("Network Error.");
+        } finally {
+            setIsAnalyzingJD(false);
+        }
+    };
+
     const handleOptimize = async (section, index, text) => {
         if (!text || text.trim() === '') return;
         setIsOptimizing({ section, index });
@@ -33,16 +77,17 @@ const App = () => {
             const response = await fetch("http://127.0.0.1:5000/api/optimize", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text, sectionType: section })
+                // Now passing the extracted keywords to guide the LLM
+                body: JSON.stringify({ text, sectionType: section, targetKeywords })
             });
             const data = await response.json();
             if (response.ok && data.optimizedText) {
                 updateEntry(section, index, 'desc', data.optimizedText);
             } else {
-                alert("Optimization failed. The AI Brain might be busy.");
+                alert("Optimization failed.");
             }
         } catch (error) {
-            alert("Could not connect to the backend server.");
+            alert("Could not connect to server.");
         } finally {
             setIsOptimizing({ section: null, index: null });
         }
@@ -50,10 +95,48 @@ const App = () => {
 
     return (
         <div className="container">
-            {/* THE EDITOR (LEFT SIDE) */}
+            {/* LEFT SIDE: EDITOR */}
             <div className="editor no-print">
                 <h2>Resume Architect</h2>
                 
+                {/* NEW: ATS SCORE AND JD ANALYSIS SECTION */}
+                <div className="edit-section" style={{ background: '#f0f4f8', padding: '15px', borderRadius: '5px' }}>
+                    <h4>Job Description Analysis</h4>
+                    <textarea 
+                        placeholder="Paste target Job Description here to extract keywords..." 
+                        value={jobDescription}
+                        onChange={(e) => setJobDescription(e.target.value)}
+                    />
+                    <button 
+                        className="download-btn" 
+                        style={{ marginTop: '10px' }}
+                        onClick={handleAnalyzeJD}
+                        disabled={isAnalyzingJD}
+                    >
+                        {isAnalyzingJD ? "ANALYZING JD..." : "EXTRACT KEYWORDS"}
+                    </button>
+                    
+                    {targetKeywords.length > 0 && (
+                        <div style={{ marginTop: '15px' }}>
+                            <strong>ATS Match: {atsScore}%</strong>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '10px' }}>
+                                {targetKeywords.map((kw, i) => {
+                                    const isFound = JSON.stringify(resumeData).toLowerCase().includes(kw.toLowerCase());
+                                    return (
+                                        <span key={i} style={{ 
+                                            background: isFound ? '#d4edda' : '#f8d7da', 
+                                            color: isFound ? '#155724' : '#721c24',
+                                            padding: '3px 8px', borderRadius: '12px', fontSize: '11px' 
+                                        }}>
+                                            {kw}
+                                        </span>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
                 <div className="edit-section">
                     <input placeholder="Full Name" onChange={(e) => setResumeData({...resumeData, name: e.target.value})} />
                     <input placeholder="Email" onChange={(e) => setResumeData({...resumeData, email: e.target.value})} />
@@ -145,15 +228,15 @@ const App = () => {
                     <button className="add-btn" onClick={() => addEntry('projects', { name:'', desc:'' })}>+ Add Project</button>
                 </div>
 
-                {/* THE DOWNLOAD BUTTON */}
+                {/* TEMPORARY DOWNLOAD BUTTON UNTIL PUPPETEER IS READY */}
                 <div className="edit-section" style={{ border: 'none', marginTop: '20px' }}>
                     <button className="download-btn" onClick={() => window.print()}>
-                        💾 DOWNLOAD AS PDF
+                        DOWNLOAD AS PDF
                     </button>
                 </div>
             </div>
 
-            {/* THE PREVIEW (RIGHT SIDE) */}
+            {/* RIGHT SIDE: PREVIEW */}
             <div className="preview latex-font">
                 <div className="resume-paper">
                     <header className="resume-header">
