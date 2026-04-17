@@ -1,62 +1,26 @@
-.latex-font { font-family: "Latin Modern Roman", serif; }
-
-.container {
-    display: flex;
-    width: 100vw;
-    height: 100vh;
-    overflow: hidden;
-}
-
-.editor {
-    width: 400px;
-    background: #fff;
-    border-right: 1px solid #ddd;
-    padding: 25px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-.preview {
-    flex: 1;
-    background: #525659;
-    padding: 30px;
-    display: flex;
-    justify-content: center;
-    overflow-y: auto;
-}
-
-.resume-paper {
-    background: white;
-    width: 8.5in;
-    min-height: 11in;
-    padding: 0.7in;
-    box-shadow: 0 0 20px rgba(0,0,0,0.5);
-    display: flex;
-    flex-direction: column;
-}
-
-.resume-header { text-align: center; margin-bottom: 10px; }
-.resume-header h1 { font-size: 20pt; margin: 0; text-transform: uppercase; }
-
-.section-title {
-    font-size: 11pt;
+/* Minimalist AI Optimize Button */
+.optimize-btn {
+    background: #1a1a1a;
+    color: #ffffff;
+    border: none;
+    padding: 8px 12px;
+    font-size: 10px;
     font-weight: bold;
-    border-bottom: 1px solid #000;
-    margin: 15px 0 5px 0;
     text-transform: uppercase;
+    letter-spacing: 0.8px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.2s ease, opacity 0.2s ease;
+    align-self: flex-start;
+    margin-top: 2px;
 }
 
-.entry-header, .entry-sub {
-    display: flex;
-    justify-content: space-between; /* FORCES RIGHT ALIGNMENT */
-    align-items: baseline;
-    width: 100%;
+.optimize-btn:hover {
+    background: #404040;
 }
 
-.entry-desc { margin-left: 15px; font-size: 10pt; line-height: 1.2; }
-
-.input-group { background: #f9f9f9; padding: 10px; margin-bottom: 10px; border: 1px solid #eee; display: flex; flex-direction: column; gap: 8px; }
-.row { display: flex; gap: 5px; }
-.add-btn { background: #eee; border: 1px solid #ccc; cursor: pointer; padding: 5px; margin-top: 5px; }
+.optimize-btn:disabled {
+    background: #8c8c8c;
+    cursor: not-allowed;
+    opacity: 0.8;
+}
