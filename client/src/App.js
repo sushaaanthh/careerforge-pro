@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
+// Recursively extracts all string/number leaf values from a nested object.
+// This prevents false ATS keyword matches against JSON keys like "desc", "name", "company".
+const extractValues = (obj) => {
+    if (typeof obj === 'string' || typeof obj === 'number') return String(obj);
+    if (Array.isArray(obj)) return obj.map(extractValues).join(' ');
+    if (typeof obj === 'object' && obj !== null) return Object.values(obj).map(extractValues).join(' ');
+    return '';
+};
+
 const App = () => {
     const [resumeData, setResumeData] = useState({
         name: '', email: '', 
@@ -10,7 +19,6 @@ const App = () => {
         skills: [{ category: '', items: '' }]
     });
 
-    // New State for ATS Tracking
     const [jobDescription, setJobDescription] = useState('');
     const [targetKeywords, setTargetKeywords] = useState([]);
     const [atsScore, setAtsScore] = useState(0);
@@ -27,14 +35,15 @@ const App = () => {
         setResumeData({ ...resumeData, [section]: updatedSection });
     };
 
-    // Calculate ATS Score whenever resumeData or targetKeywords change
+    // FIX: Use extractValues() instead of JSON.stringify() so ATS matching
+    // only checks actual user-typed content, not JSON structural keys.
     useEffect(() => {
         if (targetKeywords.length === 0) {
             setAtsScore(0);
             return;
         }
 
-        const fullResumeText = JSON.stringify(resumeData).toLowerCase();
+        const fullResumeText = extractValues(resumeData).toLowerCase();
         let matches = 0;
 
         targetKeywords.forEach(keyword => {
@@ -47,7 +56,6 @@ const App = () => {
         setAtsScore(score);
     }, [resumeData, targetKeywords]);
 
-    // Fetch Keywords from Backend
     const handleAnalyzeJD = async () => {
         if (!jobDescription.trim()) return;
         setIsAnalyzingJD(true);
@@ -77,7 +85,6 @@ const App = () => {
             const response = await fetch("http://127.0.0.1:5000/api/optimize", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                // Now passing the extracted keywords to guide the LLM
                 body: JSON.stringify({ text, sectionType: section, targetKeywords })
             });
             const data = await response.json();
@@ -99,7 +106,6 @@ const App = () => {
             <div className="editor no-print">
                 <h2>Resume Architect</h2>
                 
-                {/* NEW: ATS SCORE AND JD ANALYSIS SECTION */}
                 <div className="edit-section" style={{ background: '#f0f4f8', padding: '15px', borderRadius: '5px' }}>
                     <h4>Job Description Analysis</h4>
                     <textarea 
@@ -121,7 +127,8 @@ const App = () => {
                             <strong>ATS Match: {atsScore}%</strong>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '10px' }}>
                                 {targetKeywords.map((kw, i) => {
-                                    const isFound = JSON.stringify(resumeData).toLowerCase().includes(kw.toLowerCase());
+                                    // FIX: same extractValues() fix applied to inline chip rendering
+                                    const isFound = extractValues(resumeData).toLowerCase().includes(kw.toLowerCase());
                                     return (
                                         <span key={i} style={{ 
                                             background: isFound ? '#d4edda' : '#f8d7da', 
@@ -228,7 +235,6 @@ const App = () => {
                     <button className="add-btn" onClick={() => addEntry('projects', { name:'', desc:'' })}>+ Add Project</button>
                 </div>
 
-                {/* TEMPORARY DOWNLOAD BUTTON UNTIL PUPPETEER IS READY */}
                 <div className="edit-section" style={{ border: 'none', marginTop: '20px' }}>
                     <button className="download-btn" onClick={() => window.print()}>
                         DOWNLOAD AS PDF
