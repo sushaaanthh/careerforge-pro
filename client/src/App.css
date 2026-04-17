@@ -1,4 +1,39 @@
-/* Minimalist AI Optimize Button */
+/* LaTeX Font Base */
+.latex-font {
+    font-family: "Latin Modern Roman", "Computer Modern Serif", serif;
+}
+
+/* THE SPLIT SCREEN ENGINE */
+.container {
+    display: flex;
+    flex-direction: row; /* THIS MAKES IT SIDE-BY-SIDE */
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+}
+
+/* LEFT SIDE: EDITOR */
+.editor {
+    width: 450px;
+    background: #ffffff;
+    border-right: 1px solid #ddd;
+    padding: 25px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.edit-section { border-bottom: 1px solid #eee; padding-bottom: 15px; }
+.edit-section h4 { margin: 0 0 10px 0; }
+.input-group { background: #f9f9f9; padding: 10px; border: 1px solid #eee; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.row { display: flex; gap: 5px; }
+input, textarea { width: 100%; padding: 8px; border: 1px solid #ccc; box-sizing: border-box; }
+textarea { resize: vertical; min-height: 60px; }
+.add-btn { background: #e0e0e0; border: none; padding: 8px; cursor: pointer; width: 100%; text-align: center; font-size: 12px; }
+
+/* AI OPTIMIZE BUTTON */
 .optimize-btn {
     background: #1a1a1a;
     color: #ffffff;
@@ -7,24 +42,14 @@
     font-size: 10px;
     font-weight: bold;
     text-transform: uppercase;
-    letter-spacing: 0.8px;
     cursor: pointer;
     border-radius: 4px;
-    transition: background 0.2s ease, opacity 0.2s ease;
     align-self: flex-start;
-    margin-top: 2px;
 }
+.optimize-btn:hover { background: #404040; }
+.optimize-btn:disabled { background: #8c8c8c; cursor: not-allowed; }
 
-.optimize-btn:hover {
-    background: #404040;
-}
-
-.optimize-btn:disabled {
-    background: #8c8c8c;
-    cursor: not-allowed;
-    opacity: 0.8;
-}
-/* Minimalist Download Button */
+/* DOWNLOAD BUTTON */
 .download-btn {
     background: #0056b3;
     color: white;
@@ -35,42 +60,43 @@
     font-weight: bold;
     cursor: pointer;
     border-radius: 4px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    transition: background 0.2s;
 }
-
 .download-btn:hover { background: #004494; }
 
-/* THE PRINT ENGINE */
+/* RIGHT SIDE: PREVIEW */
+.preview {
+    flex: 1; /* THIS TAKES UP THE REST OF THE SCREEN */
+    background: #525659;
+    padding: 40px;
+    display: flex;
+    justify-content: center;
+    overflow-y: auto;
+}
+
+.resume-paper {
+    background: white;
+    width: 8.5in;
+    min-height: 11in;
+    padding: 0.5in 0.7in;
+    color: #000;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 0 15px rgba(0,0,0,0.5);
+    box-sizing: border-box;
+}
+
+/* RESUME TYPOGRAPHY & ALIGNMENT */
+.resume-header { text-align: center; margin-bottom: 10px; }
+.resume-header h1 { font-size: 20pt; margin: 0; text-transform: uppercase; }
+.section-title { font-size: 11pt; font-weight: bold; border-bottom: 1px solid #000; margin: 15px 0 5px 0; text-transform: uppercase; }
+.entry { margin-bottom: 8px; width: 100%; }
+.entry-header, .entry-sub { display: flex; justify-content: space-between; align-items: baseline; width: 100%; font-size: 10.5pt; }
+.entry-desc { margin: 2px 0 0 12px; font-size: 10pt; line-height: 1.2; }
+
+/* PRINT ENGINE */
 @media print {
-    /* 1. Hide everything with the no-print class (The Editor) */
-    .no-print {
-        display: none !important;
-    }
-
-    /* 2. Reset the background and margins so it looks like a real document */
-    body, html, .container {
-        background: white;
-        height: auto;
-        width: 100%;
-        margin: 0;
-        padding: 0;
-        display: block;
-    }
-
-    /* 3. Strip the dark background and shadows from the preview */
-    .preview {
-        background: white;
-        padding: 0;
-        display: block;
-        overflow: visible;
-    }
-
-    .resume-paper {
-        box-shadow: none;
-        width: 100%;
-        margin: 0;
-        padding: 0.5in 0.7in; /* Keep your internal margins */
-    }
+    .no-print { display: none !important; }
+    body, html, .container { background: white; height: auto; width: 100%; margin: 0; padding: 0; display: block; }
+    .preview { background: white; padding: 0; display: block; overflow: visible; }
+    .resume-paper { box-shadow: none; width: 100%; margin: 0; padding: 0.5in 0.7in; }
 }
