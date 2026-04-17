@@ -10,7 +10,7 @@ const app = express();
 
 // --- MIDDLEWARE ---
 app.use(helmet());
-app.use(cors());
+app.use(cors({ origin: '*' }));
 app.use(express.json());
 app.use(morgan("dev"));
 
@@ -35,15 +35,21 @@ const connectDatabase = async () => {
 connectDatabase();
 
 // --- HELPER: Gemini Call Wrapper ---
-const generateAIResponse = async (prompt) => {
+const generateAIResponse = async (promptText) => {
     try {
-        // Using Gemini 1.5 Flash as per Q4 Roadmap mandate
+        // Use gemini-1.5-flash as mandated by the roadmap
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-        const result = await model.generateContent(prompt);
+        
+        // The SDK requires the prompt to be wrapped in a specific parts array
+        const result = await model.generateContent({
+            contents: [{ role: "user", parts: [{ text: promptText }] }]
+        });
+
         const response = await result.response;
         return response.text();
     } catch (error) {
-        console.error("❌ Gemini Error:", error?.message || error);
+        // This will print the EXACT reason for the 500 error in your terminal
+        console.error("❌ Gemini API Detail:", error.response?.data || error.message);
         throw new Error("AI request failed");
     }
 };

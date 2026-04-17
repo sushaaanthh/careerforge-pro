@@ -60,7 +60,7 @@ const App = () => {
         if (!jobDescription.trim()) return;
         setIsAnalyzingJD(true);
         try {
-            const response = await fetch("http://127.0.0.1:5000/api/analyze-jd", {
+            const response = await fetch("http://localhost:5000/api/analyze-jd", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ jdText: jobDescription })
@@ -82,7 +82,7 @@ const App = () => {
         if (!text || text.trim() === '') return;
         setIsOptimizing({ section, index });
         try {
-            const response = await fetch("http://127.0.0.1:5000/api/optimize", {
+            const response = await fetch("http://localhost:5000/api/optimize", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ text, sectionType: section, targetKeywords })
