@@ -3,10 +3,15 @@ import './App.css';
 
 const App = () => {
     const [resumeData, setResumeData] = useState({
-        name: '', email: '', 
-        education: [{ school: '', city: '', country: '', degree: '', grades: '', date: '' }],
-        experience: [{ company: '', role: '', date: '', desc: '' }],
-        projects: [{ name: '', desc: '' }]
+    name: '', email: '', 
+    education: [{ school: '', city: '', country: '', degree: '', grades: '', date: '' }],
+    experience: [{ company: '', role: '', date: '', desc: '' }],
+    projects: [{ name: '', desc: '' }],
+    skills: [
+        { category: '', items: '' },
+        { category: '', items: '' },
+        { category: '', items: '' }
+    ]
     });
 
     const [isOptimizing, setIsOptimizing] = useState({ section: null, index: null });
@@ -69,6 +74,27 @@ const App = () => {
                         </div>
                     ))}
                     <button className="add-btn" onClick={() => addEntry('education', { school:'', city:'', country:'', degree:'', grades:'', date:'' })}>+ Add Education</button>
+                </div>
+
+                <div className="edit-section">
+                    <h4>Technical Skills</h4>
+                    {resumeData.skills.map((skill, i) => (
+                        <div key={i} className="row" style={{ marginBottom: '8px' }}>
+                            <input 
+                                placeholder="Category (e.g., Languages)" 
+                                style={{ width: '35%' }} 
+                                value={skill.category} 
+                                onChange={(e) => updateEntry('skills', i, 'category', e.target.value)} 
+                            />
+                            <input 
+                                placeholder="Skills (comma separated)" 
+                                style={{ width: '65%' }} 
+                                value={skill.items} 
+                                onChange={(e) => updateEntry('skills', i, 'items', e.target.value)} 
+                            />
+                        </div>
+                    ))}
+                    <button className="add-btn" onClick={() => addEntry('skills', { category: '', items: '' })}>+ Add Skill Category</button>
                 </div>
 
                 <div className="edit-section">
@@ -149,6 +175,19 @@ const App = () => {
                                 </div>
                             </div>
                         ))}
+                    </section>
+
+                    <section className="section">
+                        <div className="section-title">TECHNICAL SKILLS</div>
+                        <div className="entry" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            {resumeData.skills.map((skill, i) => (
+                                skill.category || skill.items ? (
+                                    <div key={i} style={{ fontSize: '10pt' }}>
+                                        <strong>{skill.category}:</strong> <span>{skill.items}</span>
+                                    </div>
+                                ) : null
+                            ))}
+                        </div>
                     </section>
 
                     <section className="section">
