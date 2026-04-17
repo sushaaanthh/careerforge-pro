@@ -24,3 +24,53 @@
     cursor: not-allowed;
     opacity: 0.8;
 }
+/* Minimalist Download Button */
+.download-btn {
+    background: #0056b3;
+    color: white;
+    border: none;
+    padding: 12px;
+    width: 100%;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: background 0.2s;
+}
+
+.download-btn:hover { background: #004494; }
+
+/* THE PRINT ENGINE */
+@media print {
+    /* 1. Hide everything with the no-print class (The Editor) */
+    .no-print {
+        display: none !important;
+    }
+
+    /* 2. Reset the background and margins so it looks like a real document */
+    body, html, .container {
+        background: white;
+        height: auto;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        display: block;
+    }
+
+    /* 3. Strip the dark background and shadows from the preview */
+    .preview {
+        background: white;
+        padding: 0;
+        display: block;
+        overflow: visible;
+    }
+
+    .resume-paper {
+        box-shadow: none;
+        width: 100%;
+        margin: 0;
+        padding: 0.5in 0.7in; /* Keep your internal margins */
+    }
+}

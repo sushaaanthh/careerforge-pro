@@ -180,4 +180,10 @@ const App = () => {
     );
 };
 
+<div className="edit-section" style={{ border: 'none', marginTop: '20px' }}>
+    <button className="download-btn" onClick={() => window.print()}>
+        DOWNLOAD AS PDF
+    </button>
+</div>
+
 export default App;
