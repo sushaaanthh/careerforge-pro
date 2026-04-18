@@ -7,7 +7,6 @@ const { GoogleGenAI } = require("@google/genai");
 
 const app = express();
 
-// Force CORS to be completely open for local development
 app.use(cors({ origin: '*' }));
 app.use(helmet());
 app.use(express.json());
@@ -81,7 +80,6 @@ function forceSingleBullet(text) {
         single = cleaned;
     }
 
-    // Hard clamp to keep frontend output focused and resume-ready.
     if (single.length > 280) {
         single = `${single.slice(0, 277).trim()}...`;
     }
@@ -91,10 +89,10 @@ function forceSingleBullet(text) {
 
 // Database Connection
 mongoose.connect(process.env.MONGODB_URI)
-    .then(() => console.log('✅ Connected to MongoDB Atlas'))
-    .catch(err => console.error('❌ MongoDB Error:', err));
+    .then(() => console.log('Connected to MongoDB Atlas'))
+    .catch(err => console.error('MongoDB Error:', err));
 
-// --- 🚀 JD ANALYSIS AGENT ---
+// --- JD ANALYSIS AGENT ---
 app.post('/api/analyze-jd', async (req, res) => {
     const { jdText } = req.body;
     if (!jdText) return res.status(400).json({ error: "No text provided." });
@@ -107,12 +105,12 @@ app.post('/api/analyze-jd', async (req, res) => {
         const keywords = keywordsText.split(',').map(k => k.trim()).filter(k => k.length > 0);
         res.json({ keywords });
     } catch (error) {
-        console.error("❌ CRITICAL AI ERROR:", error.message);
+        console.error("CRITICAL AI ERROR:", error.message);
         res.status(500).json({ error: error.message });
     }
 });
 
-// --- 🚀 OPTIMIZATION AGENT ---
+// --- OPTIMIZATION AGENT ---
 app.post('/api/optimize', async (req, res) => {
     const { text, sectionType, targetKeywords } = req.body;
     try {
@@ -127,10 +125,10 @@ Original text: ${text}`;
         const optimizedText = forceSingleBullet(optimizedTextRaw);
         res.json({ optimizedText });
     } catch (error) {
-        console.error("❌ OPTIMIZATION ERROR:", error.message);
+        console.error("OPTIMIZATION ERROR:", error.message);
         res.status(500).json({ error: error.message || "Optimization failed." });
     }
 });
 
 const PORT = 5000;
-app.listen(PORT, '0.0.0.0', () => console.log(`🚀 AI Server active on port ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`AI Server active on port ${PORT}`));

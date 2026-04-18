@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
-// Recursively extracts all string/number leaf values from a nested object.
-// This prevents false ATS keyword matches against JSON keys like "desc", "name", "company".
 const extractValues = (obj) => {
     if (typeof obj === 'string' || typeof obj === 'number') return String(obj);
     if (Array.isArray(obj)) return obj.map(extractValues).join(' ');
@@ -34,9 +32,6 @@ const App = () => {
         updatedSection[index][field] = value;
         setResumeData({ ...resumeData, [section]: updatedSection });
     };
-
-    // FIX: Use extractValues() instead of JSON.stringify() so ATS matching
-    // only checks actual user-typed content, not JSON structural keys.
     useEffect(() => {
         if (targetKeywords.length === 0) {
             setAtsScore(0);
@@ -67,11 +62,9 @@ const App = () => {
         });
         const data = await response.json();
         
-        // This is the fix: check if keywords exist in the response
         if (response.ok && data.keywords) {
             setTargetKeywords(data.keywords);
         } else {
-            // If the backend fails, alert the SPECIFIC error message
             alert(`Error: ${data.error || "Unknown error"}`);
         }
     } catch (error) {
