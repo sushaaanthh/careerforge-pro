@@ -3,135 +3,58 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
-const morgan = require('morgan');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const app = express();
 
-// --- MIDDLEWARE ---
-app.use(helmet());
+// Force CORS to be completely open for local development
 app.use(cors({ origin: '*' }));
+app.use(helmet());
 app.use(express.json());
-app.use(morgan("dev"));
 
-// --- ENV VALIDATION ---
-if (!process.env.GEMINI_API_KEY) {
-    console.error("❌ Missing GEMINI_API_KEY in .env file");
-    process.exit(1);
-}
-
-// --- GEMINI INIT (Official SDK) ---
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// --- DB CONNECTION ---
-const connectDatabase = async () => {
-    try {
-        await mongoose.connect(process.env.MONGODB_URI);
-        console.log('✅ Connected to MongoDB Atlas');
-    } catch (error) {
-        console.error('❌ Database connection failed:', error.message);
-    }
-};
-connectDatabase();
+// Database Connection
+mongoose.connect(process.env.MONGODB_URI)
+    .then(() => console.log('✅ Connected to MongoDB Atlas'))
+    .catch(err => console.error('❌ MongoDB Error:', err));
 
-// --- HELPER: Gemini Call Wrapper ---
-const generateAIResponse = async (promptText) => {
-    try {
-        // Use gemini-1.5-flash as mandated by the roadmap
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-        
-        // The SDK requires the prompt to be wrapped in a specific parts array
-        const result = await model.generateContent({
-            contents: [{ role: "user", parts: [{ text: promptText }] }]
-        });
-
-        const response = await result.response;
-        return response.text();
-    } catch (error) {
-        // This will print the EXACT reason for the 500 error in your terminal
-        console.error("❌ Gemini API Detail:", error.response?.data || error.message);
-        throw new Error("AI request failed");
-    }
-};
-
-// ===============================
-// 🚀 1. JD ANALYSIS AGENT (Week 2/3 Mandate)
-// ===============================
+// --- 🚀 JD ANALYSIS AGENT ---
 app.post('/api/analyze-jd', async (req, res) => {
     const { jdText } = req.body;
-
-    if (!jdText) {
-        return res.status(400).json({ error: "No Job Description provided." });
-    }
+    if (!jdText) return res.status(400).json({ error: "No text provided." });
 
     try {
-        const prompt = `
-            You are an expert Technical Recruiter and ATS system.
-            Task: Extract the TOP 15 most important keywords from the job description.
-            Rules:
-            - Only return comma-separated keywords
-            - No explanation, no numbering, no markdown
-            - Focus on: skills, tools, technologies, and frameworks.
-            Job Description:
-            ${jdText}
-        `;
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-8b" });
+        
+        const prompt = `Extract the top 15 technical keywords from this Job Description. Return ONLY a comma-separated list. No intro, no markdown. JD: ${jdText}`;
 
-        const keywordsText = await generateAIResponse(prompt);
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const keywordsText = response.text().trim();
 
-        // Clean and format keywords into an array
-        const keywords = keywordsText
-            .split(',')
-            .map(k => k.trim())
-            .filter(k => k.length > 0);
-
+        const keywords = keywordsText.split(',').map(k => k.trim()).filter(k => k.length > 0);
         res.json({ keywords });
-
     } catch (error) {
-        res.status(500).json({ error: "Failed to analyze Job Description." });
+        console.error("❌ CRITICAL AI ERROR:", error.message);
+        res.status(500).json({ error: error.message });
     }
 });
 
-// ===============================
-// 🚀 2. OPTIMIZATION AGENT (The "Magic" Button)
-// ===============================
+// --- 🚀 OPTIMIZATION AGENT ---
 app.post('/api/optimize', async (req, res) => {
     const { text, sectionType, targetKeywords } = req.body;
-
-    if (!text) {
-        return res.status(400).json({ error: "No text provided." });
-    }
-
     try {
-        let keywordInstruction = "";
-        if (targetKeywords && targetKeywords.length > 0) {
-            keywordInstruction = `Naturally include these keywords where relevant: ${targetKeywords.join(', ')}`;
-        }
-
-        const prompt = `
-            You are an elite resume optimizer for CareerForge Pro.
-            Rewrite the following content for the '${sectionType}' section.
-            Rules:
-            - Use strong action verbs and the STAR method.
-            - Ensure it is ATS optimized.
-            - Keep it concise.
-            - ${keywordInstruction}
-            Input: ${text}
-        `;
-
-        const optimizedText = await generateAIResponse(prompt);
-        res.json({ optimizedText: optimizedText.trim() });
-
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-8b" });
+        const prompt = `Rewrite this ${sectionType} bullet point using the STAR method. Include these keywords if possible: ${targetKeywords?.join(', ')}. Text: ${text}`;
+        
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        res.json({ optimizedText: response.text().trim() });
     } catch (error) {
         res.status(500).json({ error: "Optimization failed." });
     }
 });
 
-// --- HEALTH CHECK ---
-app.get('/health', (req, res) => {
-    res.json({ status: "healthy", timestamp: new Date().toISOString() });
-});
-
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-});
+const PORT = 5000;
+app.listen(PORT, '0.0.0.0', () => console.log(`🚀 AI Server active on port ${PORT}`));

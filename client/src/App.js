@@ -57,25 +57,28 @@ const App = () => {
     }, [resumeData, targetKeywords]);
 
     const handleAnalyzeJD = async () => {
-        if (!jobDescription.trim()) return;
-        setIsAnalyzingJD(true);
-        try {
-            const response = await fetch("http://localhost:5000/api/analyze-jd", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ jdText: jobDescription })
-            });
-            const data = await response.json();
-            if (response.ok && data.keywords) {
-                setTargetKeywords(data.keywords);
-            } else {
-                alert("Failed to analyze JD.");
-            }
-        } catch (error) {
-            alert("Network Error.");
-        } finally {
-            setIsAnalyzingJD(false);
+    if (!jobDescription.trim()) return;
+    setIsAnalyzingJD(true);
+    try {
+        const response = await fetch("http://localhost:5000/api/analyze-jd", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ jdText: jobDescription })
+        });
+        const data = await response.json();
+        
+        // This is the fix: check if keywords exist in the response
+        if (response.ok && data.keywords) {
+            setTargetKeywords(data.keywords);
+        } else {
+            // If the backend fails, alert the SPECIFIC error message
+            alert(`Error: ${data.error || "Unknown error"}`);
         }
+    } catch (error) {
+        alert("Network Error: Could not reach the AI Server.");
+    } finally {
+        setIsAnalyzingJD(false);
+    }
     };
 
     const handleOptimize = async (section, index, text) => {
