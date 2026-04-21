@@ -1,5 +1,5 @@
 # CareerForge Pro
-### AI-First Resume Architect and ATS Optimizer
+### AI-First Resume Architect
 
 CareerForge Pro is an enterprise-grade web application designed to construct Applicant Tracking System (ATS) optimized resumes. The system leverages advanced Generative AI to analyze job descriptions, extract critical keywords, and intelligently rewrite resume content to maximize candidate match rates.
 
@@ -66,3 +66,25 @@ careerforge-pro/
    PORT=5000
    MONGODB_URI=your_atlas_connection_string
    GEMINI_API_KEY=AIzaSy_your_valid_key
+3. **Initialize the containers:** Use Docker to build and orchestrate the full stack.
+   ```bash
+   docker compose up --build -d
+4. **Access the application:**
+   * **Frontend Interface:** http://localhost:3001
+   * **Backend API:** http://localhost:5000
+
+## API Reference
+
+### Extract Keywords
+Analyzes a raw job description text and returns an array of prioritized technical terms.
+
+* **Endpoint:** `POST /api/analyze-jd`
+* **Payload:** `{ "jdText": "string" }`
+* **Response:** `{ "keywords": ["react", "node.js", "mongodb"] }`
+
+### Optimize Content
+Rewrites user content to match industry standards and includes specific keywords.
+
+* **Endpoint:** `POST /api/optimize`
+* **Payload:** `{ "text": "string", "sectionType": "string", "targetKeywords": ["string", "string"] }`
+* **Response:** `{ "optimizedText": "string" }`
