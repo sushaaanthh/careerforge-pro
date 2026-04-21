@@ -1,4 +1,5 @@
 # CareerForge Pro
+
 ### AI-First Resume Architect
 
 CareerForge Pro is an enterprise-grade web application designed to construct Applicant Tracking System (ATS) optimized resumes. The system leverages advanced Generative AI to analyze job descriptions, extract critical keywords, and intelligently rewrite resume content to maximize candidate match rates.
@@ -7,14 +8,14 @@ CareerForge Pro is an enterprise-grade web application designed to construct App
 
 The platform is built on an AI-MERN Hybrid Stack. It prioritizes containerized deployment and rapid Large Language Model orchestration for a seamless user experience.
 
-* **Frontend:** React 18, Custom State Management, CSS Modules
-* **Backend:** Node.js, Express, MongoDB Atlas
-* **AI Orchestration:** Google GenAI SDK utilizing the Gemini 2.5 Flash production model
-* **Infrastructure:** Fully containerized with Docker Compose
+- **Frontend:** React 18, Custom State Management, CSS Modules
+- **Backend:** Node.js, Express, MongoDB Atlas
+- **AI Orchestration:** Google GenAI SDK utilizing the Gemini 2.5 Flash production model
+- **Infrastructure:** Fully containerized with Docker Compose
 
 ## Repository Structure
 
-```text
+```
 careerforge-pro/
 ├── client/                 # React Frontend Interface
 │   ├── src/
@@ -38,64 +39,66 @@ careerforge-pro/
 │   └── package.json
 ├── docker-compose.yml      # Multi-container orchestration
 └── README.md
+```
 
-Feature Milestones
-Phase 1: Builder Core
-Live Split-Screen Interface: The application provides real-time synchronization between form inputs and the generated ATS document preview.
+## Feature Milestones
 
-Comprehensive Schema: The database utilizes structured data models for personal details, professional experience, technical skills, and education.
+### Phase 1: Builder Core
 
-Centralized State: The frontend employs scalable state management to handle complex and nested resume data structures without performance degradation.
+- **Live Split-Screen Interface:** The application provides real-time synchronization between form inputs and the generated ATS document preview.
+- **Comprehensive Schema:** The database utilizes structured data models for personal details, professional experience, technical skills, and education.
+- **Centralized State:** The frontend employs scalable state management to handle complex and nested resume data structures without performance degradation.
 
-Phase 2: AI Orchestration
-JD Analysis Agent: The backend parses target job descriptions to extract and rank high-priority technical keywords using semantic analysis.
+### Phase 2: AI Orchestration
 
-Optimizer Agent: The system rewrites specific resume bullet points using the STAR method (Situation, Task, Action, Result). It seamlessly integrates target keywords while maintaining a professional tone.
+- **JD Analysis Agent:** The backend parses target job descriptions to extract and rank high-priority technical keywords using semantic analysis.
+- **Optimizer Agent:** The system rewrites specific resume bullet points using the STAR method (Situation, Task, Action, Result). It seamlessly integrates target keywords while maintaining a professional tone.
+- **Output Sanitization:** A custom middleware pipeline strips markdown artifacts and enforces strict single-bullet responses from the AI model to ensure UI stability.
 
-Output Sanitization: A custom middleware pipeline strips markdown artifacts and enforces strict single-bullet responses from the AI model to ensure UI stability.
+## Local Development
 
-Local Development
-Prerequisites
-Docker and Docker Compose
+### Prerequisites
 
-Google Gemini API Key
+- Docker and Docker Compose
+- Google Gemini API Key
+- MongoDB Atlas Cluster URI
 
-MongoDB Atlas Cluster URI
+### Installation Steps
 
-Installation Steps
-Clone the repository: Initialize the project locally.
+1. **Clone the repository:** Initialize the project locally.
 
-Configure environment variables: Create a .env file in the server directory and provide the required credentials.
+2. **Configure environment variables:** Create a `.env` file in the server directory and provide the required credentials.
 
-Code snippet
-PORT=5000
-MONGODB_URI=your_atlas_connection_string
-GEMINI_API_KEY=AIzaSy_your_valid_key
-Initialize the containers: Use Docker to build and orchestrate the full stack.
+   ```
+   PORT=5000
+   MONGODB_URI=your_atlas_connection_string
+   GEMINI_API_KEY=AIzaSy_your_valid_key
+   ```
 
-Bash
-docker compose up --build -d
-Access the application:
+3. **Initialize the containers:** Use Docker to build and orchestrate the full stack.
 
-Frontend Interface: http://localhost:3001
+   ```bash
+   docker compose up --build -d
+   ```
 
-Backend API: http://localhost:5000
+4. **Access the application:**
+   - Frontend Interface: http://localhost:3001
+   - Backend API: http://localhost:5000
 
-API Reference
-Extract Keywords
+## API Reference
+
+### Extract Keywords
+
 Analyzes a raw job description text and returns an array of prioritized technical terms.
 
-Endpoint: POST /api/analyze-jd
+- **Endpoint:** `POST /api/analyze-jd`
+- **Payload:** `{ "jdText": "string" }`
+- **Response:** `{ "keywords": ["react", "node.js", "mongodb"] }`
 
-Payload: { "jdText": "string" }
+### Optimize Content
 
-Response: { "keywords": ["react", "node.js", "mongodb"] }
-
-Optimize Content
 Rewrites user content to match industry standards and includes specific keywords.
 
-Endpoint: POST /api/optimize
-
-Payload: { "text": "string", "sectionType": "string", "targetKeywords": ["string", "string"] }
-
-Response: { "optimizedText": "string" }
+- **Endpoint:** `POST /api/optimize`
+- **Payload:** `{ "text": "string", "sectionType": "string", "targetKeywords": ["string", "string"] }`
+- **Response:** `{ "optimizedText": "string" }`
