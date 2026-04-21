@@ -39,52 +39,63 @@ careerforge-pro/
 ├── docker-compose.yml      # Multi-container orchestration
 └── README.md
 
-## Feature Milestones
+Feature Milestones
+Phase 1: Builder Core
+Live Split-Screen Interface: The application provides real-time synchronization between form inputs and the generated ATS document preview.
 
-### Phase 1: Builder Core
-* **Live Split-Screen Interface:** The application provides real-time synchronization between form inputs and the generated ATS document preview.
-* **Comprehensive Schema:** The database utilizes structured data models for personal details, professional experience, technical skills, and education.
-* **Centralized State:** The frontend employs scalable state management to handle complex and nested resume data structures without performance degradation.
+Comprehensive Schema: The database utilizes structured data models for personal details, professional experience, technical skills, and education.
 
-### Phase 2: AI Orchestration
-* **JD Analysis Agent:** The backend parses target job descriptions to extract and rank high-priority technical keywords using semantic analysis.
-* **Optimizer Agent:** The system rewrites specific resume bullet points using the STAR method (Situation, Task, Action, Result). It seamlessly integrates target keywords while maintaining a professional tone.
-* **Output Sanitization:** A custom middleware pipeline strips markdown artifacts and enforces strict single-bullet responses from the AI model to ensure UI stability.
+Centralized State: The frontend employs scalable state management to handle complex and nested resume data structures without performance degradation.
 
-## Local Development
+Phase 2: AI Orchestration
+JD Analysis Agent: The backend parses target job descriptions to extract and rank high-priority technical keywords using semantic analysis.
 
-### Prerequisites
-* Docker and Docker Compose
-* Google Gemini API Key
-* MongoDB Atlas Cluster URI
+Optimizer Agent: The system rewrites specific resume bullet points using the STAR method (Situation, Task, Action, Result). It seamlessly integrates target keywords while maintaining a professional tone.
 
-### Installation Steps
+Output Sanitization: A custom middleware pipeline strips markdown artifacts and enforces strict single-bullet responses from the AI model to ensure UI stability.
 
-1. **Clone the repository:** Initialize the project locally.
-2. **Configure environment variables:** Create a `.env` file in the `server` directory and provide the required credentials.
-   ```env
-   PORT=5000
-   MONGODB_URI=your_atlas_connection_string
-   GEMINI_API_KEY=AIzaSy_your_valid_key
-3. **Initialize the containers:** Use Docker to build and orchestrate the full stack.
-   ```bash
-   docker compose up --build -d
-4. **Access the application:**
-   * **Frontend Interface:** http://localhost:3001
-   * **Backend API:** http://localhost:5000
+Local Development
+Prerequisites
+Docker and Docker Compose
 
-## API Reference
+Google Gemini API Key
 
-### Extract Keywords
+MongoDB Atlas Cluster URI
+
+Installation Steps
+Clone the repository: Initialize the project locally.
+
+Configure environment variables: Create a .env file in the server directory and provide the required credentials.
+
+Code snippet
+PORT=5000
+MONGODB_URI=your_atlas_connection_string
+GEMINI_API_KEY=AIzaSy_your_valid_key
+Initialize the containers: Use Docker to build and orchestrate the full stack.
+
+Bash
+docker compose up --build -d
+Access the application:
+
+Frontend Interface: http://localhost:3001
+
+Backend API: http://localhost:5000
+
+API Reference
+Extract Keywords
 Analyzes a raw job description text and returns an array of prioritized technical terms.
 
-* **Endpoint:** `POST /api/analyze-jd`
-* **Payload:** `{ "jdText": "string" }`
-* **Response:** `{ "keywords": ["react", "node.js", "mongodb"] }`
+Endpoint: POST /api/analyze-jd
 
-### Optimize Content
+Payload: { "jdText": "string" }
+
+Response: { "keywords": ["react", "node.js", "mongodb"] }
+
+Optimize Content
 Rewrites user content to match industry standards and includes specific keywords.
 
-* **Endpoint:** `POST /api/optimize`
-* **Payload:** `{ "text": "string", "sectionType": "string", "targetKeywords": ["string", "string"] }`
-* **Response:** `{ "optimizedText": "string" }`
+Endpoint: POST /api/optimize
+
+Payload: { "text": "string", "sectionType": "string", "targetKeywords": ["string", "string"] }
+
+Response: { "optimizedText": "string" }
