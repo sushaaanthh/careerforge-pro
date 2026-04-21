@@ -43,13 +43,13 @@ careerforge-pro/
 
 ## Feature Milestones
 
-### Phase 1: Builder Core
+### Week 1: Builder Core
 
 - **Live Split-Screen Interface:** The application provides real-time synchronization between form inputs and the generated ATS document preview.
 - **Comprehensive Schema:** The database utilizes structured data models for personal details, professional experience, technical skills, and education.
 - **Centralized State:** The frontend employs scalable state management to handle complex and nested resume data structures without performance degradation.
 
-### Phase 2: AI Orchestration
+### Week 2: AI Orchestration
 
 - **JD Analysis Agent:** The backend parses target job descriptions to extract and rank high-priority technical keywords using semantic analysis.
 - **Optimizer Agent:** The system rewrites specific resume bullet points using the STAR method (Situation, Task, Action, Result). It seamlessly integrates target keywords while maintaining a professional tone.
