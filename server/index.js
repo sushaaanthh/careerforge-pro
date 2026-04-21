@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const { GoogleGenAI } = require("@google/genai");
-
+const puppeteer = require('puppeteer');
 const app = express();
 
 app.use(cors({ origin: '*' }));
@@ -130,5 +130,51 @@ Original text: ${text}`;
     }
 });
 
+// --- PDF GENERATION AGENT ---
+app.post('/api/generate-pdf', async (req, res) => {
+    const { htmlContent } = req.body;
+
+    if (!htmlContent) {
+        return res.status(400).json({ error: "Missing HTML content." });
+    }
+
+    try {
+        const browser = await puppeteer.launch({
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium',
+            args: [
+                '--no-sandbox', 
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage'
+            ]
+        });
+
+        const page = await browser.newPage();
+
+        // Load the HTML content from the frontend
+        await page.setContent(htmlContent, { 
+            waitUntil: 'networkidle0' // Wait until all fonts/images are fully loaded
+        });
+
+        const pdfBuffer = await page.pdf({
+            format: 'A4',
+            printBackground: true, // Ensures CSS background colors/images are rendered
+            margin: { top: '0', right: '0', bottom: '0', left: '0' }
+        });
+
+        await browser.close();
+
+        // Send the PDF file back to the client
+        res.set({
+            'Content-Type': 'application/pdf',
+            'Content-Length': pdfBuffer.length
+        });
+        
+        res.send(pdfBuffer);
+
+    } catch (error) {
+        console.error("PDF Generation Error:", error);
+        res.status(500).json({ error: "Failed to generate PDF document." });
+    }
+});
 const PORT = 5000;
 app.listen(PORT, '0.0.0.0', () => console.log(`AI Server active on port ${PORT}`));
