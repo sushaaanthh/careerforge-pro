@@ -1,306 +1,499 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import {
+  Save, FolderOpen, FileDown, Sparkles, Search, Trash2,
+  ArrowUp, ArrowDown, Plus, X, AlertCircle, CheckCircle, Info, FileText
+} from 'lucide-react';
 import './App.css';
 
+// extracts all text from resume data for ATS matching
 const extractValues = (obj) => {
-    if (typeof obj === 'string' || typeof obj === 'number') return String(obj);
-    if (Array.isArray(obj)) return obj.map(extractValues).join(' ');
-    if (typeof obj === 'object' && obj !== null) return Object.values(obj).map(extractValues).join(' ');
-    return '';
+  if (typeof obj === 'string' || typeof obj === 'number') return String(obj);
+  if (Array.isArray(obj)) return obj.map(extractValues).join(' ');
+  if (typeof obj === 'object' && obj !== null) return Object.values(obj).map(extractValues).join(' ');
+  return '';
 };
 
+// for Skills
+const TagInput = ({ value, onChange, placeholder }) => {
+  const [tags, setTags] = useState(() => value ? value.split(',').map(t => t.trim()).filter(Boolean) : []);
+  const [input, setInput] = useState('');
+
+  useEffect(() => {
+    setTags(value ? value.split(',').map(t => t.trim()).filter(Boolean) : []);
+  }, [value]);
+
+  const updateTags = (newTags) => {
+    setTags(newTags);
+    onChange(newTags.join(', '));
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const newTag = input.trim();
+      if (newTag && !tags.includes(newTag)) {
+        updateTags([...tags, newTag]);
+      }
+      setInput('');
+    } else if (e.key === 'Backspace' && !input && tags.length) {
+      updateTags(tags.slice(0, -1));
+    }
+  };
+
+  const removeTag = (indexToRemove) => {
+    updateTags(tags.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  return (
+    <div className="tag-input-container">
+      <div className="tags-list">
+        {tags.map((tag, idx) => (
+          <span key={idx} className="tag">
+            {tag}
+            <button type="button" onClick={() => removeTag(idx)} className="tag-remove">
+              <X size={12} />
+            </button>
+          </span>
+        ))}
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={tags.length ? "" : placeholder}
+          className="tag-input"
+        />
+      </div>
+    </div>
+  );
+};
+
+// ATS Score Gauge Component
+const AtsGauge = ({ score }) => {
+  const getColor = () => {
+    if (score >= 70) return '#2ecc71';
+    if (score >= 40) return '#f39c12';
+    return '#e74c3c';
+  };
+
+  return (
+    <div className="ats-gauge">
+      <div className="gauge-circle">
+        <svg viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="54" fill="none" stroke="#e0e0e0" strokeWidth="10" />
+          <circle
+            cx="60" cy="60" r="54" fill="none"
+            stroke={getColor()}
+            strokeWidth="10"
+            strokeDasharray={`${2 * Math.PI * 54 * score / 100} ${2 * Math.PI * 54}`}
+            strokeLinecap="round"
+            transform="rotate(-90 60 60)"
+          />
+        </svg>
+        <div className="gauge-text">
+          <span className="gauge-score">{score}%</span>
+          <span className="gauge-label">ATS Match</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Main App Component
 const App = () => {
-    const [resumeData, setResumeData] = useState({
-        name: '', email: '', 
-        education: [{ school: '', city: '', country: '', degree: '', grades: '', date: '' }],
-        experience: [{ company: '', role: '', date: '', desc: '' }],
-        projects: [{ name: '', desc: '' }],
-        skills: [{ category: '', items: '' }]
+  const [resumeData, setResumeData] = useState({
+    name: '',
+    email: '',
+    education: [{ school: '', city: '', country: '', degree: '', grades: '', date: '' }],
+    experience: [{ company: '', role: '', date: '', desc: '' }],
+    projects: [{ name: '', desc: '' }],
+    skills: [{ category: '', items: '' }]
+  });
+
+  const [jobDescription, setJobDescription] = useState('');
+  const [targetKeywords, setTargetKeywords] = useState([]);
+  const [atsScore, setAtsScore] = useState(0);
+  const [isAnalyzingJD, setIsAnalyzingJD] = useState(false);
+  const [isOptimizing, setIsOptimizing] = useState({ section: null, index: null });
+  const [notification, setNotification] = useState({ show: false, message: '', type: '' });
+
+  const fullResumeText = useMemo(() => extractValues(resumeData).toLowerCase(), [resumeData]);
+
+  useEffect(() => {
+    if (targetKeywords.length === 0) {
+      setAtsScore(0);
+      return;
+    }
+    let matches = 0;
+    targetKeywords.forEach(keyword => {
+      if (fullResumeText.includes(keyword.toLowerCase())) matches++;
     });
+    setAtsScore(Math.round((matches / targetKeywords.length) * 100));
+  }, [fullResumeText, targetKeywords]);
 
-    const [jobDescription, setJobDescription] = useState('');
-    const [targetKeywords, setTargetKeywords] = useState([]);
-    const [atsScore, setAtsScore] = useState(0);
-    const [isAnalyzingJD, setIsAnalyzingJD] = useState(false);
-    const [isOptimizing, setIsOptimizing] = useState({ section: null, index: null });
+  const showNotification = (message, type = 'info') => {
+    setNotification({ show: true, message, type });
+    setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+  };
 
-    const addEntry = (section, template) => {
-        setResumeData({ ...resumeData, [section]: [...resumeData[section], template] });
-    };
+  const addEntry = (section, template) => {
+    setResumeData({ ...resumeData, [section]: [...resumeData[section], template] });
+    showNotification(`Added new ${section} entry`, 'success');
+  };
 
-    const updateEntry = (section, index, field, value) => {
-        const updatedSection = [...resumeData[section]];
-        updatedSection[index][field] = value;
-        setResumeData({ ...resumeData, [section]: updatedSection });
-    };
-    useEffect(() => {
-        if (targetKeywords.length === 0) {
-            setAtsScore(0);
-            return;
-        }
+  const updateEntry = (section, index, field, value) => {
+    const updatedSection = [...resumeData[section]];
+    updatedSection[index][field] = value;
+    setResumeData({ ...resumeData, [section]: updatedSection });
+  };
 
-        const fullResumeText = extractValues(resumeData).toLowerCase();
-        let matches = 0;
+  const deleteEntry = (section, index) => {
+    if (resumeData[section].length === 1) {
+      showNotification(`Cannot delete the last ${section} entry`, 'warning');
+      return;
+    }
+    const updatedSection = resumeData[section].filter((_, i) => i !== index);
+    setResumeData({ ...resumeData, [section]: updatedSection });
+    showNotification(`Deleted ${section} entry`, 'success');
+  };
 
-        targetKeywords.forEach(keyword => {
-            if (fullResumeText.includes(keyword.toLowerCase())) {
-                matches++;
-            }
-        });
+  const moveEntry = (section, index, direction) => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= resumeData[section].length) return;
+    const updatedSection = [...resumeData[section]];
+    [updatedSection[index], updatedSection[newIndex]] = [updatedSection[newIndex], updatedSection[index]];
+    setResumeData({ ...resumeData, [section]: updatedSection });
+  };
 
-        const score = Math.round((matches / targetKeywords.length) * 100);
-        setAtsScore(score);
-    }, [resumeData, targetKeywords]);
-
-    const handleAnalyzeJD = async () => {
-    if (!jobDescription.trim()) return;
+  const handleAnalyzeJD = async () => {
+    if (!jobDescription.trim()) {
+      showNotification('Please paste a job description', 'warning');
+      return;
+    }
     setIsAnalyzingJD(true);
     try {
-        const response = await fetch("http://localhost:5000/api/analyze-jd", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ jdText: jobDescription })
-        });
-        const data = await response.json();
-        
-        if (response.ok && data.keywords) {
-            setTargetKeywords(data.keywords);
-        } else {
-            alert(`Error: ${data.error || "Unknown error"}`);
-        }
+      const response = await fetch("http://localhost:5000/api/analyze-jd", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jdText: jobDescription })
+      });
+      const data = await response.json();
+      if (response.ok && data.keywords) {
+        setTargetKeywords(data.keywords);
+        showNotification(`Extracted ${data.keywords.length} keywords`, 'success');
+      } else {
+        showNotification(`Error: ${data.error || "Unknown error"}`, 'error');
+      }
     } catch (error) {
-        alert("Network Error: Could not reach the AI Server.");
+      showNotification("Network Error: Could not reach the AI Server.", 'error');
     } finally {
-        setIsAnalyzingJD(false);
+      setIsAnalyzingJD(false);
     }
-    };
+  };
 
-    const handleOptimize = async (section, index, text) => {
-        if (!text || text.trim() === '') return;
-        setIsOptimizing({ section, index });
-        try {
-            const response = await fetch("http://localhost:5000/api/optimize", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text, sectionType: section, targetKeywords })
-            });
-            const data = await response.json();
-            if (response.ok && data.optimizedText) {
-                updateEntry(section, index, 'desc', data.optimizedText);
-            } else {
-                alert("Optimization failed.");
-            }
-        } catch (error) {
-            alert("Could not connect to server.");
-        } finally {
-            setIsOptimizing({ section: null, index: null });
-        }
-    };
+  const handleOptimize = async (section, index, text) => {
+    if (!text || text.trim() === '') {
+      showNotification('No description to optimize', 'warning');
+      return;
+    }
+    if (targetKeywords.length === 0) {
+      showNotification('Please extract keywords first', 'warning');
+      return;
+    }
+    setIsOptimizing({ section, index });
+    try {
+      const response = await fetch("http://localhost:5000/api/optimize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, sectionType: section, targetKeywords })
+      });
+      const data = await response.json();
+      if (response.ok && data.optimizedText) {
+        updateEntry(section, index, 'desc', data.optimizedText);
+        showNotification('Description optimized successfully', 'success');
+      } else {
+        showNotification("Optimization failed.", 'error');
+      }
+    } catch (error) {
+      showNotification("Could not connect to server.", 'error');
+    } finally {
+      setIsOptimizing({ section: null, index: null });
+    }
+  };
 
-    return (
-        <div className="container">
-            {/* LEFT SIDE: EDITOR */}
-            <div className="editor no-print">
-                <h2>Resume Architect</h2>
-                
-                <div className="edit-section" style={{ background: '#f0f4f8', padding: '15px', borderRadius: '5px' }}>
-                    <h4>Job Description Analysis</h4>
-                    <textarea 
-                        placeholder="Paste target Job Description here to extract keywords..." 
-                        value={jobDescription}
-                        onChange={(e) => setJobDescription(e.target.value)}
-                    />
-                    <button 
-                        className="download-btn" 
-                        style={{ marginTop: '10px' }}
-                        onClick={handleAnalyzeJD}
-                        disabled={isAnalyzingJD}
-                    >
-                        {isAnalyzingJD ? "ANALYZING JD..." : "EXTRACT KEYWORDS"}
-                    </button>
-                    
-                    {targetKeywords.length > 0 && (
-                        <div style={{ marginTop: '15px' }}>
-                            <strong>ATS Match: {atsScore}%</strong>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '10px' }}>
-                                {targetKeywords.map((kw, i) => {
-                                    // FIX: same extractValues() fix applied to inline chip rendering
-                                    const isFound = extractValues(resumeData).toLowerCase().includes(kw.toLowerCase());
-                                    return (
-                                        <span key={i} style={{ 
-                                            background: isFound ? '#d4edda' : '#f8d7da', 
-                                            color: isFound ? '#155724' : '#721c24',
-                                            padding: '3px 8px', borderRadius: '12px', fontSize: '11px' 
-                                        }}>
-                                            {kw}
-                                        </span>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
-                </div>
+  const clearKeywords = () => {
+    setTargetKeywords([]);
+    setJobDescription('');
+    showNotification('Keywords cleared', 'info');
+  };
 
-                <div className="edit-section">
-                    <input placeholder="Full Name" onChange={(e) => setResumeData({...resumeData, name: e.target.value})} />
-                    <input placeholder="Email" onChange={(e) => setResumeData({...resumeData, email: e.target.value})} />
-                </div>
+  const saveResume = () => {
+    localStorage.setItem('savedResume', JSON.stringify(resumeData));
+    localStorage.setItem('savedKeywords', JSON.stringify(targetKeywords));
+    showNotification('Resume saved locally', 'success');
+  };
 
-                <div className="edit-section">
-                    <h4>Education</h4>
-                    {resumeData.education.map((edu, i) => (
-                        <div key={i} className="input-group">
-                            <input placeholder="University Name" onChange={(e) => updateEntry('education', i, 'school', e.target.value)} />
-                            <div className="row">
-                                <input placeholder="City" onChange={(e) => updateEntry('education', i, 'city', e.target.value)} />
-                                <input placeholder="Country" onChange={(e) => updateEntry('education', i, 'country', e.target.value)} />
-                            </div>
-                            <input placeholder="Degree / Specialization" onChange={(e) => updateEntry('education', i, 'degree', e.target.value)} />
-                            <input placeholder="Grades" onChange={(e) => updateEntry('education', i, 'grades', e.target.value)} />
-                            <input placeholder="Date Range" onChange={(e) => updateEntry('education', i, 'date', e.target.value)} />
-                        </div>
-                    ))}
-                    <button className="add-btn" onClick={() => addEntry('education', { school:'', city:'', country:'', degree:'', grades:'', date:'' })}>+ Add Education</button>
-                </div>
+  const loadResume = () => {
+    const saved = localStorage.getItem('savedResume');
+    const savedKeywords = localStorage.getItem('savedKeywords');
+    if (saved) {
+      setResumeData(JSON.parse(saved));
+      if (savedKeywords) setTargetKeywords(JSON.parse(savedKeywords));
+      showNotification('Resume loaded', 'success');
+    } else {
+      showNotification('No saved resume found', 'info');
+    }
+  };
 
-                <div className="edit-section">
-                    <h4>Technical Skills</h4>
-                    {resumeData.skills.map((skill, i) => (
-                        <div key={i} className="row" style={{ marginBottom: '8px' }}>
-                            <input 
-                                placeholder="Category (e.g., Languages)" 
-                                style={{ width: '35%' }} 
-                                value={skill.category} 
-                                onChange={(e) => updateEntry('skills', i, 'category', e.target.value)} 
-                            />
-                            <input 
-                                placeholder="Skills (comma separated)" 
-                                style={{ width: '65%' }} 
-                                value={skill.items} 
-                                onChange={(e) => updateEntry('skills', i, 'items', e.target.value)} 
-                            />
-                        </div>
-                    ))}
-                    <button className="add-btn" onClick={() => addEntry('skills', { category: '', items: '' })}>+ Add Skill Category</button>
-                </div>
+  const isKeywordFound = useCallback((keyword) => fullResumeText.includes(keyword.toLowerCase()), [fullResumeText]);
 
-                <div className="edit-section">
-                    <h4>Experience</h4>
-                    {resumeData.experience.map((exp, i) => (
-                        <div key={i} className="input-group">
-                            <div className="row">
-                                <input placeholder="Role" onChange={(e) => updateEntry('experience', i, 'role', e.target.value)} />
-                                <input placeholder="Company" onChange={(e) => updateEntry('experience', i, 'company', e.target.value)} />
-                            </div>
-                            <input placeholder="Date Range" onChange={(e) => updateEntry('experience', i, 'date', e.target.value)} />
-                            <textarea 
-                                placeholder="Description" 
-                                value={exp.desc} 
-                                onChange={(e) => updateEntry('experience', i, 'desc', e.target.value)} 
-                            />
-                            <button 
-                                className="optimize-btn"
-                                disabled={isOptimizing.section === 'experience' && isOptimizing.index === i}
-                                onClick={() => handleOptimize('experience', i, exp.desc)}
-                            >
-                                {isOptimizing.section === 'experience' && isOptimizing.index === i ? 'OPTIMIZING...' : 'AI OPTIMIZE'}
-                            </button>
-                        </div>
-                    ))}
-                    <button className="add-btn" onClick={() => addEntry('experience', { company:'', role:'', date:'', desc:'' })}>+ Add Experience</button>
-                </div>
-
-                <div className="edit-section">
-                    <h4>Projects</h4>
-                    {resumeData.projects.map((proj, i) => (
-                        <div key={i} className="input-group">
-                            <input placeholder="Project Name" onChange={(e) => updateEntry('projects', i, 'name', e.target.value)} />
-                            <textarea 
-                                placeholder="Description" 
-                                value={proj.desc} 
-                                onChange={(e) => updateEntry('projects', i, 'desc', e.target.value)} 
-                            />
-                            <button 
-                                className="optimize-btn"
-                                disabled={isOptimizing.section === 'projects' && isOptimizing.index === i}
-                                onClick={() => handleOptimize('projects', i, proj.desc)}
-                            >
-                                {isOptimizing.section === 'projects' && isOptimizing.index === i ? 'OPTIMIZING...' : 'AI OPTIMIZE'}
-                            </button>
-                        </div>
-                    ))}
-                    <button className="add-btn" onClick={() => addEntry('projects', { name:'', desc:'' })}>+ Add Project</button>
-                </div>
-
-                <div className="edit-section" style={{ border: 'none', marginTop: '20px' }}>
-                    <button className="download-btn" onClick={() => window.print()}>
-                        DOWNLOAD AS PDF
-                    </button>
-                </div>
-            </div>
-
-            {/* RIGHT SIDE: PREVIEW */}
-            <div className="preview latex-font">
-                <div className="resume-paper">
-                    <header className="resume-header">
-                        <h1>{resumeData.name || "YOUR NAME"}</h1>
-                        <p>{resumeData.email}</p>
-                    </header>
-
-                    <section className="section">
-                        <div className="section-title">EDUCATION</div>
-                        {resumeData.education.map((edu, i) => (
-                            <div key={i} className="entry">
-                                <div className="entry-header">
-                                    <strong>{edu.school || "UNIVERSITY NAME"}</strong>
-                                    <strong>{edu.city}{edu.city && edu.country ? ', ' : ''}{edu.country}</strong>
-                                </div>
-                                <div className="entry-sub">
-                                    <em>{edu.degree}{edu.grades ? `; CGPA: ${edu.grades}` : ''}</em>
-                                    <span>{edu.date}</span>
-                                </div>
-                            </div>
-                        ))}
-                    </section>
-
-                    <section className="section">
-                        <div className="section-title">TECHNICAL SKILLS</div>
-                        <div className="entry" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            {resumeData.skills.map((skill, i) => (
-                                skill.category || skill.items ? (
-                                    <div key={i} style={{ fontSize: '10pt' }}>
-                                        <strong>{skill.category}:</strong> <span>{skill.items}</span>
-                                    </div>
-                                ) : null
-                            ))}
-                        </div>
-                    </section>
-
-                    <section className="section">
-                        <div className="section-title">WORK EXPERIENCE</div>
-                        {resumeData.experience.map((exp, i) => (
-                            <div key={i} className="entry">
-                                <div className="entry-header">
-                                    <strong>● {exp.role} – {exp.company}</strong>
-                                    <strong>{exp.date}</strong>
-                                </div>
-                                <p className="entry-desc">{exp.desc}</p>
-                            </div>
-                        ))}
-                    </section>
-
-                    <section className="section">
-                        <div className="section-title">TECHNICAL PROJECTS</div>
-                        {resumeData.projects.map((proj, i) => (
-                            <div key={i} className="entry">
-                                <strong>● {proj.name}</strong>
-                                <p className="entry-desc">{proj.desc}</p>
-                            </div>
-                        ))}
-                    </section>
-                </div>
-            </div>
+  return (
+    <div className="app-container">
+      {notification.show && (
+        <div className={`toast-notification ${notification.type}`}>
+          {notification.type === 'success' && <CheckCircle size={16} style={{ marginRight: 8 }} />}
+          {notification.type === 'error' && <AlertCircle size={16} style={{ marginRight: 8 }} />}
+          {notification.type === 'warning' && <AlertCircle size={16} style={{ marginRight: 8 }} />}
+          {notification.type === 'info' && <Info size={16} style={{ marginRight: 8 }} />}
+          {notification.message}
         </div>
-    );
-};
+      )}
 
+      {/* Top Bar */}
+      <div className="top-bar no-print">
+        <div className="logo">
+          <FileText size={22} style={{ marginRight: 8 }} />
+          <span className="logo-text">Resume Architect</span>
+        </div>
+        <div className="top-actions">
+          <button onClick={saveResume} className="action-btn"><Save size={16} style={{ marginRight: 6 }} /> Save</button>
+          <button onClick={loadResume} className="action-btn"><FolderOpen size={16} style={{ marginRight: 6 }} /> Load</button>
+          <button onClick={() => window.print()} className="action-btn primary"><FileDown size={16} style={{ marginRight: 6 }} /> PDF</button>
+        </div>
+      </div>
+
+      <div className="main-layout">
+        {/* LEFT PANEL - EDITOR */}
+        <div className="editor-panel no-print">
+          {/* JD Analysis Card */}
+          <div className="editor-card jd-card">
+            <h3 className="card-title">Job Description Analysis</h3>
+            <textarea
+              className="jd-textarea"
+              placeholder="Paste target Job Description here to extract keywords..."
+              value={jobDescription}
+              onChange={(e) => setJobDescription(e.target.value)}
+              rows={4}
+            />
+            <div className="button-group">
+              <button className="btn-primary" onClick={handleAnalyzeJD} disabled={isAnalyzingJD}>
+                <Search size={16} style={{ marginRight: 6 }} />
+                {isAnalyzingJD ? 'Analyzing...' : 'Extract Keywords'}
+              </button>
+              {targetKeywords.length > 0 && (
+                <button className="btn-secondary" onClick={clearKeywords}>Clear</button>
+              )}
+            </div>
+
+            {targetKeywords.length > 0 && (
+              <div className="keywords-section">
+                <div className="ats-header">
+                  <strong>ATS Match Score</strong>
+                  <AtsGauge score={atsScore} />
+                </div>
+                <div className="keywords-list">
+                  {targetKeywords.map((kw, i) => (
+                    <span key={i} className={`keyword-chip ${isKeywordFound(kw) ? 'found' : 'missing'}`}>
+                      {kw}
+                      {!isKeywordFound(kw) && <span className="missing-badge">●</span>}
+                    </span>
+                  ))}
+                </div>
+                <div className="missing-hint">
+                  {targetKeywords.filter(kw => !isKeywordFound(kw)).length} keywords missing
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Personal Info */}
+          <div className="editor-card">
+            <h3 className="card-title">Personal Information</h3>
+            <input type="text" placeholder="Full Name" value={resumeData.name} onChange={(e) => setResumeData({...resumeData, name: e.target.value})} className="form-input" />
+            <input type="email" placeholder="Email Address" value={resumeData.email} onChange={(e) => setResumeData({...resumeData, email: e.target.value})} className="form-input" />
+          </div>
+
+          {/* Education */}
+          <div className="editor-card">
+            <h3 className="card-title">Education</h3>
+            {resumeData.education.map((edu, i) => (
+              <div key={i} className="entry-card">
+                <div className="entry-header">
+                  <span className="entry-number">#{i+1}</span>
+                  <div className="entry-actions">
+                    <button onClick={() => moveEntry('education', i, 'up')} className="icon-btn" disabled={i===0}><ArrowUp size={14} /></button>
+                    <button onClick={() => moveEntry('education', i, 'down')} className="icon-btn" disabled={i===resumeData.education.length-1}><ArrowDown size={14} /></button>
+                    <button onClick={() => deleteEntry('education', i)} className="icon-btn delete"><Trash2 size={14} /></button>
+                  </div>
+                </div>
+                <input placeholder="University Name" value={edu.school} onChange={(e) => updateEntry('education', i, 'school', e.target.value)} className="form-input" />
+                <div className="row-inputs">
+                  <input placeholder="City" value={edu.city} onChange={(e) => updateEntry('education', i, 'city', e.target.value)} />
+                  <input placeholder="Country" value={edu.country} onChange={(e) => updateEntry('education', i, 'country', e.target.value)} />
+                </div>
+                <input placeholder="Degree / Specialization" value={edu.degree} onChange={(e) => updateEntry('education', i, 'degree', e.target.value)} className="form-input" />
+                <div className="row-inputs">
+                  <input placeholder="Grades / CGPA" value={edu.grades} onChange={(e) => updateEntry('education', i, 'grades', e.target.value)} />
+                  <input placeholder="Date Range" value={edu.date} onChange={(e) => updateEntry('education', i, 'date', e.target.value)} />
+                </div>
+              </div>
+            ))}
+            <button className="add-btn" onClick={() => addEntry('education', { school:'', city:'', country:'', degree:'', grades:'', date:'' })}><Plus size={14} style={{ marginRight: 6 }} /> Add Education</button>
+          </div>
+
+          {/* Skills */}
+          <div className="editor-card">
+            <h3 className="card-title">Technical Skills</h3>
+            {resumeData.skills.map((skill, i) => (
+              <div key={i} className="skill-group">
+                <div className="skill-header">
+                  <input placeholder="Category (e.g., Programming Languages)" value={skill.category} onChange={(e) => updateEntry('skills', i, 'category', e.target.value)} className="category-input" />
+                  <button onClick={() => deleteEntry('skills', i)} className="icon-btn delete"><Trash2 size={14} /></button>
+                </div>
+                <TagInput value={skill.items} onChange={(val) => updateEntry('skills', i, 'items', val)} placeholder="Enter skills (comma or Enter)" />
+              </div>
+            ))}
+            <button className="add-btn" onClick={() => addEntry('skills', { category: '', items: '' })}><Plus size={14} style={{ marginRight: 6 }} /> Add Skill Category</button>
+          </div>
+
+          {/* Experience */}
+          <div className="editor-card">
+            <h3 className="card-title">Work Experience</h3>
+            {resumeData.experience.map((exp, i) => (
+              <div key={i} className="entry-card">
+                <div className="entry-header">
+                  <span className="entry-number">#{i+1}</span>
+                  <div className="entry-actions">
+                    <button onClick={() => moveEntry('experience', i, 'up')} className="icon-btn" disabled={i===0}><ArrowUp size={14} /></button>
+                    <button onClick={() => moveEntry('experience', i, 'down')} className="icon-btn" disabled={i===resumeData.experience.length-1}><ArrowDown size={14} /></button>
+                    <button onClick={() => deleteEntry('experience', i)} className="icon-btn delete"><Trash2 size={14} /></button>
+                  </div>
+                </div>
+                <div className="row-inputs">
+                  <input placeholder="Role" value={exp.role} onChange={(e) => updateEntry('experience', i, 'role', e.target.value)} />
+                  <input placeholder="Company" value={exp.company} onChange={(e) => updateEntry('experience', i, 'company', e.target.value)} />
+                </div>
+                <input placeholder="Date Range" value={exp.date} onChange={(e) => updateEntry('experience', i, 'date', e.target.value)} className="form-input" />
+                <textarea placeholder="Description of responsibilities and achievements..." value={exp.desc} onChange={(e) => updateEntry('experience', i, 'desc', e.target.value)} rows={3} className="form-textarea" />
+                <button className="optimize-btn" disabled={isOptimizing.section === 'experience' && isOptimizing.index === i} onClick={() => handleOptimize('experience', i, exp.desc)}>
+                  <Sparkles size={14} style={{ marginRight: 6 }} />
+                  {isOptimizing.section === 'experience' && isOptimizing.index === i ? 'Optimizing...' : 'AI Optimize'}
+                </button>
+              </div>
+            ))}
+            <button className="add-btn" onClick={() => addEntry('experience', { company:'', role:'', date:'', desc:'' })}><Plus size={14} style={{ marginRight: 6 }} /> Add Experience</button>
+          </div>
+
+          {/* Projects */}
+          <div className="editor-card">
+            <h3 className="card-title">Technical Projects</h3>
+            {resumeData.projects.map((proj, i) => (
+              <div key={i} className="entry-card">
+                <div className="entry-header">
+                  <span className="entry-number">#{i+1}</span>
+                  <div className="entry-actions">
+                    <button onClick={() => moveEntry('projects', i, 'up')} className="icon-btn" disabled={i===0}><ArrowUp size={14} /></button>
+                    <button onClick={() => moveEntry('projects', i, 'down')} className="icon-btn" disabled={i===resumeData.projects.length-1}><ArrowDown size={14} /></button>
+                    <button onClick={() => deleteEntry('projects', i)} className="icon-btn delete"><Trash2 size={14} /></button>
+                  </div>
+                </div>
+                <input placeholder="Project Name" value={proj.name} onChange={(e) => updateEntry('projects', i, 'name', e.target.value)} className="form-input" />
+                <textarea placeholder="Project description, technologies used, and outcomes..." value={proj.desc} onChange={(e) => updateEntry('projects', i, 'desc', e.target.value)} rows={3} className="form-textarea" />
+                <button className="optimize-btn" disabled={isOptimizing.section === 'projects' && isOptimizing.index === i} onClick={() => handleOptimize('projects', i, proj.desc)}>
+                  <Sparkles size={14} style={{ marginRight: 6 }} />
+                  {isOptimizing.section === 'projects' && isOptimizing.index === i ? 'Optimizing...' : 'AI Optimize'}
+                </button>
+              </div>
+            ))}
+            <button className="add-btn" onClick={() => addEntry('projects', { name:'', desc:'' })}><Plus size={14} style={{ marginRight: 6 }} /> Add Project</button>
+          </div>
+        </div>
+
+        {/* RIGHT PANEL */}
+        <div className="preview latex-font">
+        <div className="resume-paper">
+            <header className="resume-header">
+            <h1 dangerouslySetInnerHTML={{ __html: renderLatexText(resumeData.name || "YOUR NAME") }} />
+            <p>{resumeData.email}</p>
+            </header>
+
+            <section className="section">
+            <div className="section-title">EDUCATION</div>
+            {resumeData.education.map((edu, i) => (
+                <div key={i} className="entry">
+                <div className="entry-header">
+                    <strong dangerouslySetInnerHTML={{ __html: renderLatexText(edu.school || "UNIVERSITY NAME") }} />
+                    <strong>{edu.city}{edu.city && edu.country ? ', ' : ''}{edu.country}</strong>
+                </div>
+                <div className="entry-sub">
+                    <em dangerouslySetInnerHTML={{ __html: renderLatexText(`${edu.degree}${edu.grades ? `; CGPA: ${edu.grades}` : ''}`) }} />
+                    <span>{edu.date}</span>
+                </div>
+                </div>
+            ))}
+            </section>
+
+            <section className="section">
+            <div className="section-title">TECHNICAL SKILLS</div>
+            <div className="entry" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {resumeData.skills.map((skill, i) => (
+                skill.category || skill.items ? (
+                    <div key={i} style={{ fontSize: '10pt' }}>
+                    <strong dangerouslySetInnerHTML={{ __html: renderLatexText(skill.category) }} />:
+                    <span dangerouslySetInnerHTML={{ __html: renderLatexText(skill.items) }} />
+                    </div>
+                ) : null
+                ))}
+            </div>
+            </section>
+
+            <section className="section">
+            <div className="section-title">WORK EXPERIENCE</div>
+            {resumeData.experience.map((exp, i) => (
+                <div key={i} className="entry">
+                <div className="entry-header">
+                    <strong>● {exp.role} – {exp.company}</strong>
+                    <strong>{exp.date}</strong>
+                </div>
+                <p className="entry-desc" dangerouslySetInnerHTML={{ __html: renderLatexText(exp.desc) }} />
+                </div>
+            ))}
+            </section>
+
+            <section className="section">
+            <div className="section-title">TECHNICAL PROJECTS</div>
+            {resumeData.projects.map((proj, i) => (
+                <div key={i} className="entry">
+                <strong dangerouslySetInnerHTML={{ __html: renderLatexText(proj.name) }} />
+                <p className="entry-desc" dangerouslySetInnerHTML={{ __html: renderLatexText(proj.desc) }} />
+                </div>
+            ))}
+            </section>
+        </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+// Convert LaTeX-style text commands to HTML
+const renderLatexText = (text) => {
+  if (!text) return '';
+
+  let processed = text.replace(/\\textbf\{([^}]+)\}/g, '<strong>$1</strong>');
+  processed = processed.replace(/\\textit\{([^}]+)\}/g, '<em>$1</em>');
+  processed = processed.replace(/\\emph\{([^}]+)\}/g, '<em>$1</em>');
+  processed = processed.replace(/\n/g, '<br />');
+
+  return processed;
+};
 export default App;
