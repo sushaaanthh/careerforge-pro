@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Save, FolderOpen, FileDown, Sparkles, Search, Trash2,
   ArrowUp, ArrowDown, Plus, X, AlertCircle, CheckCircle, Info, FileText
@@ -99,6 +99,18 @@ const AtsGauge = ({ score }) => {
   );
 };
 
+// Convert LaTeX-style text commands to HTML
+const renderLatexText = (text) => {
+  if (!text) return '';
+
+  let processed = text.replace(/\\textbf\{([^}]+)\}/g, '<strong>$1</strong>');
+  processed = processed.replace(/\\textit\{([^}]+)\}/g, '<em>$1</em>');
+  processed = processed.replace(/\\emph\{([^}]+)\}/g, '<em>$1</em>');
+  processed = processed.replace(/\n/g, '<br />');
+
+  return processed;
+};
+
 // Main App Component
 const App = () => {
   const [resumeData, setResumeData] = useState({
@@ -116,6 +128,9 @@ const App = () => {
   const [isAnalyzingJD, setIsAnalyzingJD] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState({ section: null, index: null });
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false); // NEW: PDF generation state
+
+  const previewRef = useRef(null); // NEW: reference to the preview div
 
   const fullResumeText = useMemo(() => extractValues(resumeData).toLowerCase(), [resumeData]);
 
@@ -247,6 +262,111 @@ const App = () => {
 
   const isKeywordFound = useCallback((keyword) => fullResumeText.includes(keyword.toLowerCase()), [fullResumeText]);
 
+  // NEW: Puppeteer PDF generation function
+    const downloadPDFWithPuppeteer = async () => {
+    const previewElement = previewRef.current;
+    if (!previewElement) {
+        showNotification('Preview not found', 'error');
+        return;
+    }
+
+    setIsGeneratingPDF(true);
+
+    // Clone the preview
+    const clonePreview = previewElement.cloneNode(true);
+    
+    const styleTags = document.querySelectorAll('style');
+    let uniqueStyles = '';
+    const styleContents = new Set();
+    
+    styleTags.forEach(style => {
+        const content = style.innerHTML;
+        if (!styleContents.has(content)) {
+        styleContents.add(content);
+        uniqueStyles += content;
+        }
+    });
+    
+    const linkTags = document.querySelectorAll('link[rel="stylesheet"]');
+    let linkHtml = '';
+    linkTags.forEach(link => {
+        if (link.href.includes('localhost') || link.href.includes('/static/')) {
+        linkHtml += `<link rel="stylesheet" href="${link.href}">`;
+        }
+    });
+
+    const widthOverrides = `
+    <style>
+        /* Force full width and equal side margins */
+        .preview {
+        max-width: 100% !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 15px !important;   /* equal left & right padding */
+        box-sizing: border-box !important;
+        }
+        .resume-paper {
+        max-width: 100% !important;
+        width: 100% !important;
+        padding: 20px 20px !important;  /* equal left & right */
+        margin: 0 auto !important;
+        box-sizing: border-box !important;
+        }
+        body {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: white;
+        }
+    </style>
+    `;
+
+    const fullHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <meta charset="UTF-8">
+        <title>${resumeData.name || 'Resume'}</title>
+        ${linkHtml}
+        <style>${uniqueStyles}</style>
+        ${widthOverrides}
+        </head>
+        <body>
+        ${clonePreview.outerHTML}
+        </body>
+        </html>
+    `;
+
+    try {
+        const response = await fetch('http://localhost:5000/api/generate-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ htmlContent: fullHTML })
+        });
+
+        if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'PDF generation failed');
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${resumeData.name || 'Resume'}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        showNotification('PDF generated successfully', 'success');
+    } catch (error) {
+        console.error('PDF generation error:', error);
+        showNotification(error.message || 'Failed to generate PDF', 'error');
+    } finally {
+        setIsGeneratingPDF(false);
+    }
+    };
+
   return (
     <div className="app-container">
       {notification.show && (
@@ -268,7 +388,10 @@ const App = () => {
         <div className="top-actions">
           <button onClick={saveResume} className="action-btn"><Save size={16} style={{ marginRight: 6 }} /> Save</button>
           <button onClick={loadResume} className="action-btn"><FolderOpen size={16} style={{ marginRight: 6 }} /> Load</button>
-          <button onClick={() => window.print()} className="action-btn primary"><FileDown size={16} style={{ marginRight: 6 }} /> PDF</button>
+          <button onClick={downloadPDFWithPuppeteer} className="action-btn primary" disabled={isGeneratingPDF}>
+            <FileDown size={16} style={{ marginRight: 6 }} />
+            {isGeneratingPDF ? 'Generating...' : 'PDF'}
+          </button>
         </div>
       </div>
 
@@ -419,81 +542,71 @@ const App = () => {
           </div>
         </div>
 
-        {/* RIGHT PANEL */}
-        <div className="preview latex-font">
-        <div className="resume-paper">
+        {/* RIGHT PANEL - PREVIEW (with ref) */}
+        <div className="preview latex-font" ref={previewRef}>
+          <div className="resume-paper">
             <header className="resume-header">
-            <h1 dangerouslySetInnerHTML={{ __html: renderLatexText(resumeData.name || "YOUR NAME") }} />
-            <p>{resumeData.email}</p>
+              <h1 dangerouslySetInnerHTML={{ __html: renderLatexText(resumeData.name || "YOUR NAME") }} />
+              <p>{resumeData.email}</p>
             </header>
 
             <section className="section">
-            <div className="section-title">EDUCATION</div>
-            {resumeData.education.map((edu, i) => (
+              <div className="section-title">EDUCATION</div>
+              {resumeData.education.map((edu, i) => (
                 <div key={i} className="entry">
-                <div className="entry-header">
+                  <div className="entry-header">
                     <strong dangerouslySetInnerHTML={{ __html: renderLatexText(edu.school || "UNIVERSITY NAME") }} />
                     <strong>{edu.city}{edu.city && edu.country ? ', ' : ''}{edu.country}</strong>
-                </div>
-                <div className="entry-sub">
+                  </div>
+                  <div className="entry-sub">
                     <em dangerouslySetInnerHTML={{ __html: renderLatexText(`${edu.degree}${edu.grades ? `; CGPA: ${edu.grades}` : ''}`) }} />
                     <span>{edu.date}</span>
+                  </div>
                 </div>
-                </div>
-            ))}
+              ))}
             </section>
 
             <section className="section">
-            <div className="section-title">TECHNICAL SKILLS</div>
-            <div className="entry" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div className="section-title">TECHNICAL SKILLS</div>
+              <div className="entry" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 {resumeData.skills.map((skill, i) => (
-                skill.category || skill.items ? (
+                  skill.category || skill.items ? (
                     <div key={i} style={{ fontSize: '10pt' }}>
-                    <strong dangerouslySetInnerHTML={{ __html: renderLatexText(skill.category) }} />:
-                    <span dangerouslySetInnerHTML={{ __html: renderLatexText(skill.items) }} />
+                      <strong dangerouslySetInnerHTML={{ __html: renderLatexText(skill.category) }} />:
+                      <span dangerouslySetInnerHTML={{ __html: renderLatexText(skill.items) }} />
                     </div>
-                ) : null
+                  ) : null
                 ))}
-            </div>
+              </div>
             </section>
 
             <section className="section">
-            <div className="section-title">WORK EXPERIENCE</div>
-            {resumeData.experience.map((exp, i) => (
+              <div className="section-title">WORK EXPERIENCE</div>
+              {resumeData.experience.map((exp, i) => (
                 <div key={i} className="entry">
-                <div className="entry-header">
+                  <div className="entry-header">
                     <strong>● {exp.role} – {exp.company}</strong>
                     <strong>{exp.date}</strong>
+                  </div>
+                  <p className="entry-desc" dangerouslySetInnerHTML={{ __html: renderLatexText(exp.desc) }} />
                 </div>
-                <p className="entry-desc" dangerouslySetInnerHTML={{ __html: renderLatexText(exp.desc) }} />
-                </div>
-            ))}
+              ))}
             </section>
 
             <section className="section">
-            <div className="section-title">TECHNICAL PROJECTS</div>
-            {resumeData.projects.map((proj, i) => (
+              <div className="section-title">TECHNICAL PROJECTS</div>
+              {resumeData.projects.map((proj, i) => (
                 <div key={i} className="entry">
-                <strong dangerouslySetInnerHTML={{ __html: renderLatexText(proj.name) }} />
-                <p className="entry-desc" dangerouslySetInnerHTML={{ __html: renderLatexText(proj.desc) }} />
+                  <strong dangerouslySetInnerHTML={{ __html: renderLatexText(proj.name) }} />
+                  <p className="entry-desc" dangerouslySetInnerHTML={{ __html: renderLatexText(proj.desc) }} />
                 </div>
-            ))}
+              ))}
             </section>
-        </div>
+          </div>
         </div>
       </div>
     </div>
   );
 };
-// Convert LaTeX-style text commands to HTML
-const renderLatexText = (text) => {
-  if (!text) return '';
 
-  let processed = text.replace(/\\textbf\{([^}]+)\}/g, '<strong>$1</strong>');
-  processed = processed.replace(/\\textit\{([^}]+)\}/g, '<em>$1</em>');
-  processed = processed.replace(/\\emph\{([^}]+)\}/g, '<em>$1</em>');
-  processed = processed.replace(/\n/g, '<br />');
-
-  return processed;
-};
 export default App;

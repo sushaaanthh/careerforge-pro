@@ -158,7 +158,7 @@ app.post('/api/generate-pdf', async (req, res) => {
         const pdfBuffer = await page.pdf({
             format: 'A4',
             printBackground: true, // Ensures CSS background colors/images are rendered
-            margin: { top: '0', right: '0', bottom: '0', left: '0' }
+            margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' }
         });
 
         await browser.close();
@@ -169,7 +169,7 @@ app.post('/api/generate-pdf', async (req, res) => {
             'Content-Length': pdfBuffer.length
         });
         
-        res.send(pdfBuffer);
+        res.end(pdfBuffer);
 
     } catch (error) {
         console.error("PDF Generation Error:", error);
