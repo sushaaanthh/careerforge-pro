@@ -317,6 +317,20 @@ const App = () => {
         padding: 0 !important;
         background: white;
         }
+        @media print {
+        .section {
+            break-inside: avoid;        /* keep whole section together */
+            page-break-inside: avoid;
+        }
+        .entry {
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+        h1, h2, h3, .section-title {
+            break-after: avoid;
+            page-break-after: avoid;
+        }
+        }
     </style>
     `;
 

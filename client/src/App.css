@@ -82,7 +82,7 @@ body {
   min-width: 0;
 }
 
-/* LEFT PANEL (EDITOR)*/
+/* LEFT PANEL (EDITOR) */
 .editor-panel {
   flex: 0.9;
   min-width: 0;
@@ -104,7 +104,7 @@ body {
   overflow-y: auto;
   background: #e2e8f0;
   padding: 1rem;
-  font-family: 'Times New Roman', Times, serif !important;
+  font-family: 'CMU Serif', 'Computer Modern', 'Times New Roman', Times, serif !important;
 }
 
 /* LATEX PREVIEW STYLES */
@@ -116,30 +116,30 @@ body {
   margin: 0 auto;
   padding: 1.5rem 2rem;
   box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-  font-family: 'Times New Roman', Times, serif !important;
+  font-family: 'CMU Serif', 'Computer Modern', 'Times New Roman', Times, serif !important;
   color: #000;
   line-height: 1.4;
   box-sizing: border-box;
 }
 
-/* Header – black border, black name */
+/* Header */
 .preview.latex-font .resume-header {
   text-align: center;
-  border-bottom: 2px solid #333;
-  padding-bottom: 1rem;
+  border-bottom: 1px solid #000;
+  padding-bottom: 0.75rem;
   margin-bottom: 1.5rem;
 }
 
 .preview.latex-font .resume-header h1 {
   font-size: 2rem;
-  letter-spacing: 1px;
+  font-weight: bold;
   margin-bottom: 0.25rem;
   color: #000 !important;
-  font-weight: bold;
+  letter-spacing: normal;
 }
 
 .preview.latex-font .resume-header p {
-  color: #555 !important;
+  color: #333 !important;
   font-size: 0.9rem;
   margin-top: 0.25rem;
 }
@@ -148,20 +148,27 @@ body {
 .preview.latex-font .section-title {
   font-size: 1rem;
   font-weight: 700;
-  letter-spacing: 1px;
-  border-bottom: 1.5px solid #888;
-  padding-bottom: 0.25rem;
-  margin: 1rem 0 0.75rem 0 !important;
+  text-transform: none;
+  letter-spacing: normal;
+  border-bottom: 1px solid #000;
+  padding-bottom: 0.15rem;
+  margin: 1rem 0 0.5rem 0 !important;
   color: #000 !important;
-  text-transform: uppercase;
+  font-variant: small-caps;
 }
 
 /* Entry blocks */
+.preview.latex-font .section,
 .preview.latex-font .entry {
-  margin-bottom: 1rem !important;
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
-/* Entry header (university/location) */
+.preview.latex-font .entry {
+  margin-bottom: 0.75rem !important;
+}
+
+/* Entry header (university / location) */
 .preview.latex-font .entry-header {
   display: flex !important;
   justify-content: space-between !important;
@@ -171,12 +178,12 @@ body {
   color: #000;
 }
 
-/* Entry subline (degree/date) */
+/* Entry subline (degree / date) */
 .preview.latex-font .entry-sub {
   display: flex !important;
   justify-content: space-between !important;
   font-size: 0.8rem;
-  color: #555 !important;
+  color: #444 !important;
   margin-bottom: 0.3rem;
 }
 
@@ -185,10 +192,10 @@ body {
   font-size: 0.85rem;
   margin-top: 0.25rem;
   line-height: 1.4;
-  color: #222 !important;
+  color: #111 !important;
 }
 
-/* EDITOR CARD STYLES */
+/* EDITOR CARD STYLES (unchanged) */
 .editor-card {
   background: white;
   border-radius: 16px;
@@ -289,7 +296,7 @@ body {
   outline: none;
 }
 
-/* Entry Cards (education/experience/project) */
+/* Entry Cards (education/experience/projects) */
 .entry-card {
   background: #fefefe;
   border: 1px solid #eef2f5;
@@ -519,7 +526,7 @@ body {
   }
 }
 
-/* PRINT STYLES (A4 PDF) */
+/* PRINT STYLES – A4 PDF (LaTeX page boundaries) */
 @media print {
   .no-print {
     display: none !important;
@@ -540,6 +547,15 @@ body {
     margin: 0 auto;
     page-break-after: avoid;
     page-break-inside: avoid;
+  }
+  .preview.latex-font .section,
+  .preview.latex-font .entry {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .preview.latex-font .section-title {
+    break-after: avoid;
+    page-break-after: avoid;
   }
   @page {
     size: A4;
