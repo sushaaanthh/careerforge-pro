@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
+import LivePreview from './components/LivePreview';
+import Dashboard from './components/Dashboard';
+import CoverLetterGenerator from './components/CoverLetterGenerator';
 
 const extractValues = (obj) => {
     if (typeof obj === 'string' || typeof obj === 'number') return String(obj);
@@ -96,10 +99,17 @@ const App = () => {
         }
     };
 
+    const [rightTab, setRightTab] = useState(() => {
+        const isDashboardReturn =
+            window.location.pathname.includes('/dashboard') ||
+            new URLSearchParams(window.location.search).has('session_id');
+        return isDashboardReturn ? 'dashboard' : 'preview';
+    }); // preview | dashboard | cover-letter
+
     return (
-        <div className="container">
-            {/* LEFT SIDE: EDITOR */}
-            <div className="editor no-print">
+        <div className="cf-app-shell">
+            {/* LEFT: Resume Builder */}
+            <section className="cf-left-pane">
                 <h2>Resume Architect</h2>
                 
                 <div className="edit-section" style={{ background: '#f0f4f8', padding: '15px', borderRadius: '5px' }}>
@@ -123,7 +133,6 @@ const App = () => {
                             <strong>ATS Match: {atsScore}%</strong>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '10px' }}>
                                 {targetKeywords.map((kw, i) => {
-                                    // FIX: same extractValues() fix applied to inline chip rendering
                                     const isFound = extractValues(resumeData).toLowerCase().includes(kw.toLowerCase());
                                     return (
                                         <span key={i} style={{ 
@@ -231,76 +240,49 @@ const App = () => {
                     <button className="add-btn" onClick={() => addEntry('projects', { name:'', desc:'' })}>+ Add Project</button>
                 </div>
 
-                <div className="edit-section" style={{ border: 'none', marginTop: '20px' }}>
-                    <button className="download-btn" onClick={() => window.print()}>
-                        DOWNLOAD AS PDF
+            </section>
+
+            {/* RIGHT: Workspace (Preview / Dashboard / Cover Letter) */}
+            <section className="cf-right-pane">
+                <div className="cf-tabbar">
+                    <button
+                        className={`cf-tab ${rightTab === 'preview' ? 'active' : ''}`}
+                        onClick={() => setRightTab('preview')}
+                    >
+                        Live Preview
+                    </button>
+                    <button
+                        className={`cf-tab ${rightTab === 'dashboard' ? 'active' : ''}`}
+                        onClick={() => setRightTab('dashboard')}
+                    >
+                        Dashboard
+                    </button>
+                    <button
+                        className={`cf-tab ${rightTab === 'cover-letter' ? 'active' : ''}`}
+                        onClick={() => setRightTab('cover-letter')}
+                    >
+                        Cover Letter
                     </button>
                 </div>
-            </div>
 
-            {/* RIGHT SIDE: PREVIEW */}
-            <div className="preview latex-font">
-                <div className="resume-paper">
-                    <header className="resume-header">
-                        <h1>{resumeData.name || "YOUR NAME"}</h1>
-                        <p>{resumeData.email}</p>
-                    </header>
+                <div className="cf-right-content">
+                    {rightTab === 'preview' && (
+                        <LivePreview resumeData={resumeData} />
+                    )}
 
-                    <section className="section">
-                        <div className="section-title">EDUCATION</div>
-                        {resumeData.education.map((edu, i) => (
-                            <div key={i} className="entry">
-                                <div className="entry-header">
-                                    <strong>{edu.school || "UNIVERSITY NAME"}</strong>
-                                    <strong>{edu.city}{edu.city && edu.country ? ', ' : ''}{edu.country}</strong>
-                                </div>
-                                <div className="entry-sub">
-                                    <em>{edu.degree}{edu.grades ? `; CGPA: ${edu.grades}` : ''}</em>
-                                    <span>{edu.date}</span>
-                                </div>
-                            </div>
-                        ))}
-                    </section>
+                    {rightTab === 'dashboard' && (
+                        <Dashboard userEmail={resumeData.email} />
+                    )}
 
-                    <section className="section">
-                        <div className="section-title">TECHNICAL SKILLS</div>
-                        <div className="entry" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            {resumeData.skills.map((skill, i) => (
-                                skill.category || skill.items ? (
-                                    <div key={i} style={{ fontSize: '10pt' }}>
-                                        <strong>{skill.category}:</strong> <span>{skill.items}</span>
-                                    </div>
-                                ) : null
-                            ))}
-                        </div>
-                    </section>
-
-                    <section className="section">
-                        <div className="section-title">WORK EXPERIENCE</div>
-                        {resumeData.experience.map((exp, i) => (
-                            <div key={i} className="entry">
-                                <div className="entry-header">
-                                    <strong>● {exp.role} – {exp.company}</strong>
-                                    <strong>{exp.date}</strong>
-                                </div>
-                                <p className="entry-desc">{exp.desc}</p>
-                            </div>
-                        ))}
-                    </section>
-
-                    <section className="section">
-                        <div className="section-title">TECHNICAL PROJECTS</div>
-                        {resumeData.projects.map((proj, i) => (
-                            <div key={i} className="entry">
-                                <strong>● {proj.name}</strong>
-                                <p className="entry-desc">{proj.desc}</p>
-                            </div>
-                        ))}
-                    </section>
+                    {rightTab === 'cover-letter' && (
+                        <CoverLetterGenerator
+                            fullName={resumeData.name}
+                            resumeText={extractValues(resumeData)}
+                        />
+                    )}
                 </div>
-            </div>
+            </section>
         </div>
     );
 };
-
 export default App;
