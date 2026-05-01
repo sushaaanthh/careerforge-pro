@@ -114,7 +114,7 @@ const CoverLetterGenerator = ({ resumeData, fullName, resumeText }) => {
                   </body>
                 </html>
               `;
-              fetch('http://localhost:5000/api/download-pdf', {
+              fetch('http://localhost:5000/api/generate-pdf', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ htmlContent })
