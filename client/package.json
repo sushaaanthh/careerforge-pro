@@ -3,7 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@google/genai": "^1.50.1",
     "@reduxjs/toolkit": "^2.2.1",
     "axios": "^1.6.7",
     "react": "^18.2.0",

@@ -10,7 +10,7 @@ The platform is built on an AI-MERN Hybrid Stack. It prioritizes containerized d
 
 - **Frontend:** React 18, Custom State Management, CSS Modules
 - **Backend:** Node.js, Express, MongoDB Atlas
-- **AI Orchestration:** Google GenAI SDK utilizing the Gemini 2.5 Flash production model
+- **AI Orchestration:** Groq SDK with Llama 3 (8B model) for ultra-low latency AI inference
 - **Infrastructure:** Fully containerized with Docker Compose
 
 ## Repository Structure
@@ -60,7 +60,7 @@ careerforge-pro/
 ### Prerequisites
 
 - Docker and Docker Compose
-- Google Gemini API Key
+- Groq API Key (from https://console.groq.com)
 - MongoDB Atlas Cluster URI
 
 ### Installation Steps
@@ -72,7 +72,7 @@ careerforge-pro/
    ```
    PORT=5000
    MONGODB_URI=your_atlas_connection_string
-   GEMINI_API_KEY=AIzaSy_your_valid_key
+   GROQ_API_KEY=your_groq_api_key_here
    ```
 
 3. **Initialize the containers:** Use Docker to build and orchestrate the full stack.

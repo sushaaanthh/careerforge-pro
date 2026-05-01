@@ -4,6 +4,15 @@ import LivePreview from './components/LivePreview';
 import Dashboard from './components/Dashboard';
 import CoverLetterGenerator from './components/CoverLetterGenerator';
 
+const createEmptyResumeData = () => ({
+    name: '',
+    email: '',
+    education: [{ school: '', city: '', country: '', degree: '', grades: '', date: '' }],
+    experience: [{ company: '', role: '', date: '', desc: '' }],
+    projects: [{ name: '', desc: '' }],
+    skills: [{ category: '', items: '' }]
+});
+
 const extractValues = (obj) => {
     if (typeof obj === 'string' || typeof obj === 'number') return String(obj);
     if (Array.isArray(obj)) return obj.map(extractValues).join(' ');
@@ -11,14 +20,55 @@ const extractValues = (obj) => {
     return '';
 };
 
+const normalizeResumeData = (resume = {}) => {
+    const source = resume.resumeData || resume.parsedData || resume;
+    const educationSource = Array.isArray(source.education) ? source.education : [];
+    const experienceSource = Array.isArray(source.experience) ? source.experience : [];
+    const projectsSource = Array.isArray(source.projects) ? source.projects : [];
+    const skillsSource = Array.isArray(source.skills) ? source.skills : [];
+    const emptyResume = createEmptyResumeData();
+
+    return {
+        ...emptyResume,
+        name: source.name || resume.personalInfo?.fullName || '',
+        email: source.email || resume.personalInfo?.email || '',
+        education: educationSource.length > 0
+            ? educationSource.map((item) => ({
+                school: item.school || item.institution || '',
+                city: item.city || item.location || '',
+                country: item.country || '',
+                degree: item.degree || '',
+                grades: item.grades || item.percentage || '',
+                date: item.date || item.duration || ''
+            }))
+            : emptyResume.education,
+        experience: experienceSource.length > 0
+            ? experienceSource.map((item) => ({
+                company: item.company || '',
+                role: item.role || '',
+                date: item.date || item.duration || '',
+                desc: item.desc || item.description || ''
+            }))
+            : emptyResume.experience,
+        projects: projectsSource.length > 0
+            ? projectsSource.map((item) => ({
+                name: item.name || item.title || '',
+                desc: item.desc || item.description || ''
+            }))
+            : emptyResume.projects,
+        skills: skillsSource.length > 0
+            ? skillsSource.map((item) => ({
+                category: item.category || '',
+                items: item.items || item.list || ''
+            }))
+            : emptyResume.skills
+    };
+};
+
+const friendlyAiBusyMessage = 'The AI is currently busy. Please wait a moment and try again.';
+
 const App = () => {
-    const [resumeData, setResumeData] = useState({
-        name: '', email: '', 
-        education: [{ school: '', city: '', country: '', degree: '', grades: '', date: '' }],
-        experience: [{ company: '', role: '', date: '', desc: '' }],
-        projects: [{ name: '', desc: '' }],
-        skills: [{ category: '', items: '' }]
-    });
+    const [resumeData, setResumeData] = useState(createEmptyResumeData());
 
     const [jobDescription, setJobDescription] = useState('');
     const [targetKeywords, setTargetKeywords] = useState([]);
@@ -68,10 +118,13 @@ const App = () => {
         if (response.ok && data.keywords) {
             setTargetKeywords(data.keywords);
         } else {
-            alert(`Error: ${data.error || "Unknown error"}`);
+            const message = String(data?.error || 'Unknown error');
+            alert(response.status >= 500 || /high demand|busy|try again/i.test(message)
+                ? friendlyAiBusyMessage
+                : `Error: ${message}`);
         }
     } catch (error) {
-        alert("Network Error: Could not reach the AI Server.");
+        alert(friendlyAiBusyMessage);
     } finally {
         setIsAnalyzingJD(false);
     }
@@ -90,10 +143,13 @@ const App = () => {
             if (response.ok && data.optimizedText) {
                 updateEntry(section, index, 'desc', data.optimizedText);
             } else {
-                alert("Optimization failed.");
+                const message = String(data?.error || 'Optimization failed.');
+                alert(response.status >= 500 || /high demand|busy|try again/i.test(message)
+                    ? friendlyAiBusyMessage
+                    : message);
             }
         } catch (error) {
-            alert("Could not connect to server.");
+            alert(friendlyAiBusyMessage);
         } finally {
             setIsOptimizing({ section: null, index: null });
         }
@@ -105,6 +161,11 @@ const App = () => {
             new URLSearchParams(window.location.search).has('session_id');
         return isDashboardReturn ? 'dashboard' : 'preview';
     }); // preview | dashboard | cover-letter
+
+    const handleLoadResume = (savedResume) => {
+        setResumeData(normalizeResumeData(savedResume));
+        setRightTab('preview');
+    };
 
     return (
         <div className="cf-app-shell">
@@ -271,11 +332,12 @@ const App = () => {
                     )}
 
                     {rightTab === 'dashboard' && (
-                        <Dashboard userEmail={resumeData.email} />
+                        <Dashboard userEmail={resumeData.email} onLoadResume={handleLoadResume} />
                     )}
 
                     {rightTab === 'cover-letter' && (
                         <CoverLetterGenerator
+                            resumeData={resumeData}
                             fullName={resumeData.name}
                             resumeText={extractValues(resumeData)}
                         />

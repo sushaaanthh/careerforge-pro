@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
-const Dashboard = ({ userEmail }) => {
+const Dashboard = ({ userEmail, onLoadResume }) => {
   const [data, setData] = useState({ user: null, files: [] });
+  const [savedDocuments, setSavedDocuments] = useState([]);
+  const [isLoadingDocuments, setIsLoadingDocuments] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [isConfirmingPayment, setIsConfirmingPayment] = useState(false);
   const [checkoutStatus, setCheckoutStatus] = useState('');
@@ -22,14 +25,39 @@ const Dashboard = ({ userEmail }) => {
   ];
 
   const fetchData = useCallback(async () => {
-    if (!userEmail) return null;
-    const res = await fetch(`http://localhost:5000/api/me?email=${encodeURIComponent(userEmail)}`);
-    const json = await res.json();
-    if (res.ok) {
-      setData(json);
-      return json;
+    const emailQuery = userEmail ? `?email=${encodeURIComponent(userEmail)}` : '';
+    setIsLoadingDocuments(true);
+    setLoadError('');
+
+    try {
+      const [meResponse, resumesResponse] = await Promise.all([
+        fetch(`http://localhost:5000/api/me${emailQuery}`),
+        fetch(`http://localhost:5000/api/resumes${emailQuery}`)
+      ]);
+
+      const meJson = await meResponse.json().catch(() => ({}));
+      const resumesJson = await resumesResponse.json().catch(() => ({}));
+
+      if (meResponse.ok) {
+        setData(meJson);
+      }
+
+      if (resumesResponse.ok) {
+        setSavedDocuments(Array.isArray(resumesJson.resumes) ? resumesJson.resumes : []);
+      } else {
+        setLoadError(resumesJson?.error || 'Unable to load saved documents.');
+      }
+
+      return {
+        user: meResponse.ok ? meJson.user : null,
+        resumes: resumesResponse.ok ? resumesJson.resumes || [] : []
+      };
+    } catch (error) {
+      setLoadError('Could not load your documents right now.');
+      return null;
+    } finally {
+      setIsLoadingDocuments(false);
     }
-    return null;
   }, [userEmail]);
 
   useEffect(() => {
@@ -91,6 +119,12 @@ const Dashboard = ({ userEmail }) => {
     }
   };
 
+  const handleViewEdit = (document) => {
+    if (typeof onLoadResume === 'function') {
+      onLoadResume(document.resumeData || document.parsedData || document);
+    }
+  };
+
   return (
     <section className="cf-glass-card">
       <h2 className="cf-title">Dashboard</h2>
@@ -146,15 +180,44 @@ const Dashboard = ({ userEmail }) => {
         </div>
       </div>
 
-      <h3 className="cf-subtitle">Saved Files</h3>
-      <ul className="cf-list">
-        {data.files.map((f) => (
-          <li key={f.id}>
-            <span>{f.name}</span>
-            <span>{new Date(f.updatedAt).toLocaleString()}</span>
-          </li>
-        ))}
-      </ul>
+      <div className="cf-glass-card" style={{ marginBottom: 14 }}>
+        <h3 className="cf-subtitle" style={{ marginTop: 0 }}>Saved Documents</h3>
+
+        {isLoadingDocuments ? (
+          <p className="template-status">Loading your documents...</p>
+        ) : loadError ? (
+          <p className="template-status">{loadError}</p>
+        ) : savedDocuments.length === 0 ? (
+          <p className="template-status">No saved documents yet.</p>
+        ) : (
+          <div className="saved-doc-grid">
+            {savedDocuments.map((document) => (
+              <article key={document.id} className="saved-doc-card">
+                <div className="saved-doc-card__header">
+                  <div>
+                    <h4 className="saved-doc-card__title">{document.title || 'Untitled Resume'}</h4>
+                    <p className="saved-doc-card__meta">{document.ownerEmail || userEmail || 'No email on file'}</p>
+                  </div>
+                  <span className="saved-doc-card__badge">{document.atsScore || 0}% ATS</span>
+                </div>
+
+                <div className="saved-doc-card__stats">
+                  <span>{Array.isArray(document.education) ? document.education.length : 0} Education</span>
+                  <span>{Array.isArray(document.experience) ? document.experience.length : 0} Experience</span>
+                  <span>{Array.isArray(document.skills) ? document.skills.length : 0} Skills</span>
+                </div>
+
+                <div className="saved-doc-card__footer">
+                  <span>{document.updatedAt ? new Date(document.updatedAt).toLocaleString() : 'Recently updated'}</span>
+                  <button className="cf-btn saved-doc-card__button" onClick={() => handleViewEdit(document)}>
+                    View/Edit
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
     </section>
   );
 };

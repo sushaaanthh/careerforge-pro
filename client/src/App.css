@@ -237,6 +237,80 @@ body {
   gap: 12px;
 }
 
+.saved-doc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.saved-doc-card {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(7, 13, 26, 0.5);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.saved-doc-card__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.saved-doc-card__title {
+  margin: 0;
+  font-family: 'Zilla Slab', serif;
+  font-size: 1.05rem;
+}
+
+.saved-doc-card__meta {
+  margin: 4px 0 0;
+  color: var(--cf-muted);
+  font-size: 0.9rem;
+}
+
+.saved-doc-card__badge {
+  flex: 0 0 auto;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: rgba(59, 130, 246, 0.18);
+  color: #dbeafe;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.saved-doc-card__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--cf-muted);
+  font-size: 0.85rem;
+}
+
+.saved-doc-card__stats span {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  padding: 4px 8px;
+}
+
+.saved-doc-card__footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  color: var(--cf-muted);
+  font-size: 0.85rem;
+}
+
+.saved-doc-card__button {
+  padding: 8px 12px;
+  border-radius: 999px;
+}
+
 .template-card {
   position: relative;
   overflow: hidden;

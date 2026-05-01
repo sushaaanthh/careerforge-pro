@@ -1,20 +1,20 @@
 const mongoose = require('mongoose');
 
 const ResumeSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  ownerEmail: { type: String, index: true },
+  title: { type: String, default: 'Untitled Resume' },
+  resumeData: { type: mongoose.Schema.Types.Mixed, default: {} },
+  parsedData: { type: mongoose.Schema.Types.Mixed, default: {} },
   personalInfo: {
     fullName: String,
     email: String,
     linkedin: String,
     github: String,
   },
-  education: [{
-    institution: String,
-    location: String,
-    degree: String,
-    duration: String,
-    percentage: String
-  }],
+  education: [{ type: mongoose.Schema.Types.Mixed, default: {} }],
+  experience: [{ type: mongoose.Schema.Types.Mixed, default: {} }],
+  skills: [{ type: mongoose.Schema.Types.Mixed, default: {} }],
+  projects: [{ type: mongoose.Schema.Types.Mixed, default: {} }],
   workExperience: [{
     role: String,
     company: String,
@@ -37,6 +37,6 @@ const ResumeSchema = new mongoose.Schema({
   }],
   softSkills: [String],
   atsScore: { type: Number, default: 0 }
-});
+}, { timestamps: true });
 
-module.exports = mongoose.model('Resume', ResumeSchema);
+module.exports = mongoose.models.Resume || mongoose.model('Resume', ResumeSchema);

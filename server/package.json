@@ -1,6 +1,10 @@
 {
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js"
+  },
   "dependencies": {
-    "@google/genai": "^0.3.0",
+    "groq-sdk": "^0.3.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
