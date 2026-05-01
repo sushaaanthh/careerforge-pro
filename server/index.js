@@ -8,15 +8,16 @@ const puppeteer = require('puppeteer');
 const app = express();
 const authRoutes = require('./routes/auth');
 const stripeRoutes = require('./routes/stripe');
+const resumeRoutes = require('./routes/resume');
 
 app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), stripeRoutes);
-
 
 app.use(cors({ origin: '*' }));
 app.use(helmet());
 app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/stripe', stripeRoutes);
+app.use('/api/resumes', resumeRoutes);
 
 const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -204,5 +205,41 @@ app.post('/api/generate-pdf', async (req, res) => {
         res.status(500).json({ error: "Failed to generate PDF document." });
     }
 });
+
+app.post('/api/generate-cover-letter', async (req, res) => {
+  const { resumeData, jobDescription, targetKeywords } = req.body;
+
+  if (!resumeData || !jobDescription) {
+    return res.status(400).json({ error: 'Missing resume data or job description' });
+  }
+
+  // Build a prompt that uses user's resume and JD
+  const prompt = `
+    You are a professional cover letter writer. Using the following resume information and job description, write a compelling cover letter.
+
+    RESUME:
+    Name: ${resumeData.name}
+    Email: ${resumeData.email}
+    Skills: ${resumeData.skills.map(s => `${s.category}: ${s.items}`).join('; ')}
+    Experience: ${resumeData.experience.map(e => `${e.role} at ${e.company}: ${e.desc}`).join('; ')}
+    Projects: ${resumeData.projects.map(p => `${p.name}: ${p.desc}`).join('; ')}
+
+    JOB DESCRIPTION:
+    ${jobDescription}
+
+    KEYWORDS (incorporate naturally): ${targetKeywords?.join(', ') || 'None'}
+
+    Return ONLY the cover letter text, no extra comments. Format as a standard business letter (date, inside address, salutation, body paragraphs, closing).
+  `;
+
+  try {
+    const result = await generateAIResponse(prompt); // reuse your Gemini function
+    res.json({ coverLetter: result });
+  } catch (error) {
+    console.error('Cover letter error:', error);
+    res.status(500).json({ error: 'Failed to generate cover letter' });
+  }
+});
+
 const PORT = 5000;
 app.listen(PORT, '0.0.0.0', () => console.log(`AI Server active on port ${PORT}`));

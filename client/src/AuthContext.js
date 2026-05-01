@@ -5,15 +5,30 @@ const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(() => localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      axios.get('http://localhost:5000/api/auth/me')
-        .then(res => setUser(res.data))
-        .catch(() => logout())
+    const storedToken = localStorage.getItem('token');
+    if (storedToken) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+      fetch('http://localhost:5000/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${storedToken}` }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data._id) {
+            setUser(data);
+            setToken(storedToken);
+          } else {
+            localStorage.removeItem('token');
+            setToken(null);
+          }
+        })
+        .catch(() => {
+          localStorage.removeItem('token');
+          setToken(null);
+        })
         .finally(() => setLoading(false));
     } else {
       setLoading(false);
@@ -22,20 +37,25 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const res = await axios.post('http://localhost:5000/api/auth/login', { email, password });
-    localStorage.setItem('token', res.data.token);
-    axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
+    const newToken = res.data.token;
+    localStorage.setItem('token', newToken);
+    setToken(newToken);
+    axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
     setUser({ _id: res.data.userId, plan: res.data.plan, email });
   };
 
   const signup = async (email, password) => {
     const res = await axios.post('http://localhost:5000/api/auth/signup', { email, password });
-    localStorage.setItem('token', res.data.token);
-    axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
+    const newToken = res.data.token;
+    localStorage.setItem('token', newToken);
+    setToken(newToken);
+    axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
     setUser({ _id: res.data.userId, plan: res.data.plan, email });
   };
 
   const logout = () => {
     localStorage.removeItem('token');
+    setToken(null);
     delete axios.defaults.headers.common['Authorization'];
     setUser(null);
   };
@@ -46,7 +66,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, upgradeToPro, loading }}>
+    <AuthContext.Provider value={{ user, token, login, signup, logout, upgradeToPro, loading }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 import {
   Save, FolderOpen, FileDown, Sparkles, Search, Trash2,
-  ArrowUp, ArrowDown, Plus, X, AlertCircle, CheckCircle, Info, FileText
+  ArrowUp, ArrowDown, Plus, X, AlertCircle, CheckCircle, Info, FileText,
+  Cloud, LogOut, Loader2
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
-import './App.css';     // keep your original styles
+import DashboardPage from './DashboardPage';
+import './App.css';
 
-// extracts all text from resume data for ATS matching
 const extractValues = (obj) => {
   if (typeof obj === 'string' || typeof obj === 'number') return String(obj);
   if (Array.isArray(obj)) return obj.map(extractValues).join(' ');
@@ -14,7 +16,6 @@ const extractValues = (obj) => {
   return '';
 };
 
-// TagInput component (unchanged)
 const TagInput = ({ value, onChange, placeholder }) => {
   const [tags, setTags] = useState(() => value ? value.split(',').map(t => t.trim()).filter(Boolean) : []);
   const [input, setInput] = useState('');
@@ -69,14 +70,12 @@ const TagInput = ({ value, onChange, placeholder }) => {
   );
 };
 
-// ATS Score Gauge Component (unchanged)
 const AtsGauge = ({ score }) => {
   const getColor = () => {
     if (score >= 70) return '#2ecc71';
     if (score >= 40) return '#f39c12';
     return '#e74c3c';
   };
-
   return (
     <div className="ats-gauge">
       <div className="gauge-circle">
@@ -100,7 +99,6 @@ const AtsGauge = ({ score }) => {
   );
 };
 
-// Convert LaTeX-style text commands to HTML
 const renderLatexText = (text) => {
   if (!text) return '';
   let processed = text.replace(/\\textbf\{([^}]+)\}/g, '<strong>$1</strong>');
@@ -110,14 +108,17 @@ const renderLatexText = (text) => {
   return processed;
 };
 
-// Main App Component
+
 const App = () => {
-  const { user, login, signup, logout, upgradeToPro, loading } = useAuth();
+  const { user, login, signup, logout, upgradeToPro, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+
+  // Auth UI state
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [isLogin, setIsLogin] = useState(true);
 
-  // Resume state (unchanged)
+  // Resume state
   const [resumeData, setResumeData] = useState({
     name: '',
     email: '',
@@ -134,8 +135,12 @@ const App = () => {
   const [isOptimizing, setIsOptimizing] = useState({ section: null, index: null });
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
-
   const previewRef = useRef(null);
+
+  // Cover letter state
+  const [coverLetter, setCoverLetter] = useState('');
+  const [showCoverLetterModal, setShowCoverLetterModal] = useState(false);
+  const [isGeneratingCoverLetter, setIsGeneratingCoverLetter] = useState(false);
 
   const fullResumeText = useMemo(() => extractValues(resumeData).toLowerCase(), [resumeData]);
 
@@ -159,14 +164,14 @@ const App = () => {
     if (sessionId && user && user.plan !== 'pro') {
       const interval = setInterval(async () => {
         try {
-          const token = localStorage.getItem('token');
+          const storedToken = localStorage.getItem('token');
           const res = await fetch('http://localhost:5000/api/auth/me', {
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { 'Authorization': `Bearer ${storedToken}` }
           });
           const userData = await res.json();
           if (userData.plan === 'pro') {
             clearInterval(interval);
-            window.location.href = '/'; // refresh to update user state (or call logout/login)
+            window.location.href = '/';
           }
         } catch (err) {
           console.error('Polling error:', err);
@@ -181,17 +186,16 @@ const App = () => {
     setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
   };
 
+  // ---------- Resume CRUD ----------
   const addEntry = (section, template) => {
     setResumeData({ ...resumeData, [section]: [...resumeData[section], template] });
     showNotification(`Added new ${section} entry`, 'success');
   };
-
   const updateEntry = (section, index, field, value) => {
     const updatedSection = [...resumeData[section]];
     updatedSection[index][field] = value;
     setResumeData({ ...resumeData, [section]: updatedSection });
   };
-
   const deleteEntry = (section, index) => {
     if (resumeData[section].length === 1) {
       showNotification(`Cannot delete the last ${section} entry`, 'warning');
@@ -201,7 +205,6 @@ const App = () => {
     setResumeData({ ...resumeData, [section]: updatedSection });
     showNotification(`Deleted ${section} entry`, 'success');
   };
-
   const moveEntry = (section, index, direction) => {
     const newIndex = direction === 'up' ? index - 1 : index + 1;
     if (newIndex < 0 || newIndex >= resumeData[section].length) return;
@@ -210,6 +213,7 @@ const App = () => {
     setResumeData({ ...resumeData, [section]: updatedSection });
   };
 
+  // ---------- AI features ----------
   const handleAnalyzeJD = async () => {
     if (!jobDescription.trim()) {
       showNotification('Please paste a job description', 'warning');
@@ -272,12 +276,12 @@ const App = () => {
     showNotification('Keywords cleared', 'info');
   };
 
+  // ---------- Local storage save/load ----------
   const saveResume = () => {
     localStorage.setItem('savedResume', JSON.stringify(resumeData));
     localStorage.setItem('savedKeywords', JSON.stringify(targetKeywords));
     showNotification('Resume saved locally', 'success');
   };
-
   const loadResume = () => {
     const saved = localStorage.getItem('savedResume');
     const savedKeywords = localStorage.getItem('savedKeywords');
@@ -292,18 +296,27 @@ const App = () => {
 
   const isKeywordFound = useCallback((keyword) => fullResumeText.includes(keyword.toLowerCase()), [fullResumeText]);
 
-  // PDF generation with authentication
+  // ---------- PDF Generation (Pro only) ----------
   const downloadPDFWithPuppeteer = async () => {
+    if (user?.plan !== 'pro') {
+      showNotification('Upgrade to Pro to download PDF', 'warning');
+      return;
+    }
     const previewElement = previewRef.current;
     if (!previewElement) {
       showNotification('Preview not found', 'error');
       return;
     }
 
+    const storedToken = localStorage.getItem('token');
+    if (!storedToken) {
+      showNotification('You must be logged in', 'error');
+      return;
+    }
+
     setIsGeneratingPDF(true);
     const clonePreview = previewElement.cloneNode(true);
-    
-    // Collect styles (deduplicated)
+
     const styleTags = document.querySelectorAll('style');
     let uniqueStyles = '';
     const styleContents = new Set();
@@ -314,7 +327,6 @@ const App = () => {
         uniqueStyles += content;
       }
     });
-    
     const linkTags = document.querySelectorAll('link[rel="stylesheet"]');
     let linkHtml = '';
     linkTags.forEach(link => {
@@ -328,7 +340,11 @@ const App = () => {
         .preview { max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 0 15px !important; box-sizing: border-box !important; }
         .resume-paper { max-width: 100% !important; width: 100% !important; padding: 20px 20px !important; margin: 0 auto !important; box-sizing: border-box !important; }
         body { margin: 0 !important; padding: 0 !important; background: white; }
-        @media print { .section, .entry { break-inside: avoid; page-break-inside: avoid; } h1, h2, h3, .section-title { break-after: avoid; } }
+        @media print {
+          .section, .entry { break-inside: avoid; page-break-inside: avoid; }
+          h1, h2, h3, .section-title { break-after: avoid; page-break-after: avoid; }
+          @page { size: A4; margin: 0.75in; }
+        }
       </style>
     `;
 
@@ -341,21 +357,15 @@ const App = () => {
     `;
 
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch('http://localhost:5000/api/generate-pdf', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${storedToken}` },
         body: JSON.stringify({ htmlContent: fullHTML })
       });
-
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'PDF generation failed');
       }
-
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -374,49 +384,196 @@ const App = () => {
     }
   };
 
-  // Show login/signup screen if not authenticated
-  if (loading) {
-    return <div className="flex justify-center items-center h-screen">Loading...</div>;
+  // ---------- Cover Letter (Pro only) ----------
+  const generateCoverLetter = async () => {
+    if (user?.plan !== 'pro') {
+      showNotification('Upgrade to Pro to generate cover letters', 'warning');
+      return;
+    }
+    if (!jobDescription.trim()) {
+      showNotification('Please paste a job description first', 'warning');
+      return;
+    }
+    const storedToken = localStorage.getItem('token');
+    if (!storedToken) {
+      showNotification('You must be logged in', 'error');
+      return;
+    }
+    setIsGeneratingCoverLetter(true);
+    try {
+      const response = await fetch('http://localhost:5000/api/generate-cover-letter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${storedToken}` },
+        body: JSON.stringify({ resumeData, jobDescription, targetKeywords })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setCoverLetter(data.coverLetter);
+        setShowCoverLetterModal(true);
+      } else {
+        showNotification(data.error || 'Failed to generate cover letter', 'error');
+      }
+    } catch (err) {
+      showNotification('Network error', 'error');
+    } finally {
+      setIsGeneratingCoverLetter(false);
+    }
+  };
+
+  // ---------- Cloud Save ----------
+  const saveCurrentResumeToCloud = async () => {
+    const storedToken = localStorage.getItem('token');
+    if (!storedToken) {
+      showNotification('You must be logged in', 'error');
+      return;
+    }
+    const name = prompt('Enter a name for this resume:', new Date().toLocaleString());
+    if (!name) return;
+
+    try {
+      const response = await fetch('http://localhost:5000/api/resumes/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${storedToken}`
+        },
+        body: JSON.stringify({
+          name,
+          resumeData,
+          keywords: targetKeywords,
+          jobDescription: jobDescription
+        })
+      });
+      if (response.ok) {
+        showNotification('Resume saved to cloud', 'success');
+      } else {
+        const error = await response.json();
+        showNotification(error.error || 'Failed to save', 'error');
+      }
+    } catch (err) {
+      showNotification('Network error', 'error');
+    }
+  };
+
+  const handleLoadResumeFromDashboard = (data, keywords) => {
+    setResumeData(data);
+    if (keywords) setTargetKeywords(keywords);
+    showNotification('Resume loaded from cloud', 'success');
+    navigate('/');
+  };
+
+  // ------------------------------------------------------------
+  // Authentication screen (updated styling)
+  // ------------------------------------------------------------
+  if (authLoading) {
+    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>Loading...</div>;
   }
 
   if (!user) {
     return (
-      <div className="auth-container" style={{ maxWidth: '400px', margin: '80px auto', padding: '20px', background: 'white', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-        <h2 className="text-2xl font-bold mb-4">{isLogin ? 'Login' : 'Create Account'}</h2>
-        <input
-          type="email"
-          placeholder="Email"
-          value={loginEmail}
-          onChange={(e) => setLoginEmail(e.target.value)}
-          className="form-input"
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={loginPassword}
-          onChange={(e) => setLoginPassword(e.target.value)}
-          className="form-input"
-        />
-        <button
-          onClick={() => isLogin ? login(loginEmail, loginPassword) : signup(loginEmail, loginPassword)}
-          className="btn-primary w-full"
-        >
-          {isLogin ? 'Login' : 'Sign Up'}
-        </button>
-        <p className="mt-3 text-center text-sm">
-          {isLogin ? "Don't have an account? " : "Already have an account? "}
-          <button onClick={() => setIsLogin(!isLogin)} className="text-blue-600 underline">
-            {isLogin ? 'Sign up' : 'Login'}
+      <div style={{ 
+        minHeight: '100vh', 
+        background: '#eef2f5', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        fontFamily: "'Inter', sans-serif"
+      }}>
+        <div style={{
+          maxWidth: '420px',
+          width: '90%',
+          margin: '2rem auto',
+          padding: '2rem',
+          background: 'white',
+          borderRadius: '24px',
+          boxShadow: '0 10px 25px rgba(0,0,0,0.05)',
+          textAlign: 'center'
+        }}>
+          <div style={{ marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.5rem' }}>
+              <FileText size={40} color="#1e3c72" />
+            </div>
+            <h2 style={{ color: '#1e3c72', marginBottom: '0.5rem', fontSize: '1.8rem' }}>Resume Architect</h2>
+            <p style={{ color: '#5b6e8c', fontSize: '0.9rem' }}>
+              {isLogin ? 'Sign in to continue' : 'Create your free account'}
+            </p>
+          </div>
+          <input
+            type="email"
+            placeholder="Email address"
+            value={loginEmail}
+            onChange={(e) => setLoginEmail(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '0.75rem 1rem',
+              border: '1px solid #dce4ec',
+              borderRadius: '12px',
+              marginBottom: '1rem',
+              fontSize: '0.9rem',
+              outline: 'none',
+              transition: 'all 0.2s'
+            }}
+            onFocus={(e) => e.target.style.borderColor = '#1e3c72'}
+            onBlur={(e) => e.target.style.borderColor = '#dce4ec'}
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={loginPassword}
+            onChange={(e) => setLoginPassword(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '0.75rem 1rem',
+              border: '1px solid #dce4ec',
+              borderRadius: '12px',
+              marginBottom: '1.5rem',
+              fontSize: '0.9rem',
+              outline: 'none'
+            }}
+            onFocus={(e) => e.target.style.borderColor = '#1e3c72'}
+            onBlur={(e) => e.target.style.borderColor = '#dce4ec'}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                isLogin ? login(loginEmail, loginPassword) : signup(loginEmail, loginPassword);
+              }
+            }}
+          />
+          <button
+            onClick={() => isLogin ? login(loginEmail, loginPassword) : signup(loginEmail, loginPassword)}
+            style={{
+              width: '100%',
+              background: '#1e3c72',
+              color: 'white',
+              border: 'none',
+              padding: '0.75rem',
+              borderRadius: '12px',
+              fontSize: '1rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'background 0.2s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = '#0f2b4f'}
+            onMouseLeave={(e) => e.currentTarget.style.background = '#1e3c72'}
+          >
+            {isLogin ? 'Login' : 'Sign Up'}
           </button>
-        </p>
+          <p style={{ marginTop: '1.5rem', fontSize: '0.85rem', color: '#5b6e8c' }}>
+            {isLogin ? "Don't have an account? " : "Already have an account? "}
+            <button
+              onClick={() => setIsLogin(!isLogin)}
+              style={{ color: '#1e3c72', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '500' }}
+            >
+              {isLogin ? 'Sign up' : 'Login'}
+            </button>
+          </p>
+        </div>
       </div>
     );
   }
 
-  // Main app (authenticated)
-  return (
+
+  const EditorScreen = () => (
     <div className="app-container">
-      {/* Notification toast */}
       {notification.show && (
         <div className={`toast-notification ${notification.type}`}>
           {notification.type === 'success' && <CheckCircle size={16} style={{ marginRight: 8 }} />}
@@ -427,15 +584,20 @@ const App = () => {
         </div>
       )}
 
-      {/* Top Bar */}
       <div className="top-bar no-print">
         <div className="logo">
           <FileText size={22} style={{ marginRight: 8 }} />
           <span className="logo-text">Resume Architect</span>
         </div>
         <div className="top-actions">
-          <button onClick={saveResume} className="action-btn"><Save size={16} style={{ marginRight: 6 }} /> Save</button>
-          <button onClick={loadResume} className="action-btn"><FolderOpen size={16} style={{ marginRight: 6 }} /> Load</button>
+          <button onClick={saveResume} className="action-btn"><Save size={16} style={{ marginRight: 6 }} /> Local Save</button>
+          <button onClick={loadResume} className="action-btn"><FolderOpen size={16} style={{ marginRight: 6 }} /> Local Load</button>
+          <button onClick={saveCurrentResumeToCloud} className="action-btn"><Cloud size={16} style={{ marginRight: 6 }} /> Cloud Save</button>
+          <button onClick={() => navigate('/dashboard')} className="action-btn"><FolderOpen size={16} style={{ marginRight: 6 }} /> Dashboard</button>
+          <button onClick={generateCoverLetter} disabled={isGeneratingCoverLetter} className="action-btn">
+            <FileText size={16} style={{ marginRight: 6 }} />
+            {isGeneratingCoverLetter ? 'Generating...' : 'Cover Letter'}
+          </button>
           {user.plan === 'pro' ? (
             <button onClick={downloadPDFWithPuppeteer} disabled={isGeneratingPDF} className="action-btn primary">
               <FileDown size={16} style={{ marginRight: 6 }} />
@@ -446,7 +608,7 @@ const App = () => {
               Upgrade to Pro
             </button>
           )}
-          <button onClick={logout} className="action-btn" style={{ background: '#fee2e2', color: '#991b1b' }}>Logout</button>
+          <button onClick={logout} className="action-btn" style={{ background: '#fee2e2', color: '#991b1b' }}><LogOut size={16} style={{ marginRight: 6 }} /> Logout</button>
         </div>
         <div style={{ fontSize: '0.8rem', marginLeft: 'auto', marginRight: '1rem' }}>
           Plan: <strong>{user.plan === 'pro' ? 'Pro' : 'Free'}</strong>
@@ -454,7 +616,6 @@ const App = () => {
       </div>
 
       <div className="main-layout">
-        {/* LEFT PANEL - EDITOR (same as before) */}
         <div className="editor-panel no-print">
           {/* JD Analysis Card */}
           <div className="editor-card jd-card">
@@ -663,7 +824,28 @@ const App = () => {
           </div>
         </div>
       </div>
+
+      {/* Cover Letter Modal */}
+      {showCoverLetterModal && (
+        <div className="modal-overlay" onClick={() => setShowCoverLetterModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3>Generated Cover Letter</h3>
+            <div style={{ whiteSpace: 'pre-wrap', maxHeight: '60vh', overflowY: 'auto', marginBottom: '1rem' }}>
+              {coverLetter}
+            </div>
+            <button onClick={() => setShowCoverLetterModal(false)} className="btn-primary">Close</button>
+          </div>
+        </div>
+      )}
     </div>
+  );
+
+  
+  return (
+    <Routes>
+      <Route path="/" element={<EditorScreen />} />
+      <Route path="/dashboard" element={<DashboardPage onLoadResume={handleLoadResumeFromDashboard} />} />
+    </Routes>
   );
 };
 
