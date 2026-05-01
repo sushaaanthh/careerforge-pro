@@ -6,10 +6,17 @@ const helmet = require('helmet');
 const { GoogleGenAI } = require("@google/genai");
 const puppeteer = require('puppeteer');
 const app = express();
+const authRoutes = require('./routes/auth');
+const stripeRoutes = require('./routes/stripe');
+
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), stripeRoutes);
+
 
 app.use(cors({ origin: '*' }));
 app.use(helmet());
 app.use(express.json());
+app.use('/api/auth', authRoutes);
+app.use('/api/stripe', stripeRoutes);
 
 const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -130,8 +137,28 @@ Original text: ${text}`;
     }
 });
 
+const jwt = require('jsonwebtoken');
+const User = require('./src/models/User');
+
 // --- PDF GENERATION AGENT ---
 app.post('/api/generate-pdf', async (req, res) => {
+    // 1. Verify JWT
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Missing token' });
+
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    userId = decoded.userId;
+  } catch {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+
+  // 2. Check if user is Pro
+  const user = await User.findById(userId);
+  if (!user || user.plan !== 'pro') {
+    return res.status(403).json({ error: 'Upgrade to Pro to download PDF' });
+  }
     const { htmlContent } = req.body;
 
     if (!htmlContent) {

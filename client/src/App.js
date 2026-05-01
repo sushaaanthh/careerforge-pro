@@ -3,7 +3,8 @@ import {
   Save, FolderOpen, FileDown, Sparkles, Search, Trash2,
   ArrowUp, ArrowDown, Plus, X, AlertCircle, CheckCircle, Info, FileText
 } from 'lucide-react';
-import './App.css';
+import { useAuth } from './AuthContext';
+import './App.css';     // keep your original styles
 
 // extracts all text from resume data for ATS matching
 const extractValues = (obj) => {
@@ -13,7 +14,7 @@ const extractValues = (obj) => {
   return '';
 };
 
-// for Skills
+// TagInput component (unchanged)
 const TagInput = ({ value, onChange, placeholder }) => {
   const [tags, setTags] = useState(() => value ? value.split(',').map(t => t.trim()).filter(Boolean) : []);
   const [input, setInput] = useState('');
@@ -68,7 +69,7 @@ const TagInput = ({ value, onChange, placeholder }) => {
   );
 };
 
-// ATS Score Gauge Component
+// ATS Score Gauge Component (unchanged)
 const AtsGauge = ({ score }) => {
   const getColor = () => {
     if (score >= 70) return '#2ecc71';
@@ -102,17 +103,21 @@ const AtsGauge = ({ score }) => {
 // Convert LaTeX-style text commands to HTML
 const renderLatexText = (text) => {
   if (!text) return '';
-
   let processed = text.replace(/\\textbf\{([^}]+)\}/g, '<strong>$1</strong>');
   processed = processed.replace(/\\textit\{([^}]+)\}/g, '<em>$1</em>');
   processed = processed.replace(/\\emph\{([^}]+)\}/g, '<em>$1</em>');
   processed = processed.replace(/\n/g, '<br />');
-
   return processed;
 };
 
 // Main App Component
 const App = () => {
+  const { user, login, signup, logout, upgradeToPro, loading } = useAuth();
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [isLogin, setIsLogin] = useState(true);
+
+  // Resume state (unchanged)
   const [resumeData, setResumeData] = useState({
     name: '',
     email: '',
@@ -128,12 +133,13 @@ const App = () => {
   const [isAnalyzingJD, setIsAnalyzingJD] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState({ section: null, index: null });
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
-  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false); // NEW: PDF generation state
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
-  const previewRef = useRef(null); // NEW: reference to the preview div
+  const previewRef = useRef(null);
 
   const fullResumeText = useMemo(() => extractValues(resumeData).toLowerCase(), [resumeData]);
 
+  // ATS score calculation
   useEffect(() => {
     if (targetKeywords.length === 0) {
       setAtsScore(0);
@@ -145,6 +151,30 @@ const App = () => {
     });
     setAtsScore(Math.round((matches / targetKeywords.length) * 100));
   }, [fullResumeText, targetKeywords]);
+
+  // Poll for upgrade success after Stripe redirect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get('session_id');
+    if (sessionId && user && user.plan !== 'pro') {
+      const interval = setInterval(async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const res = await fetch('http://localhost:5000/api/auth/me', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const userData = await res.json();
+          if (userData.plan === 'pro') {
+            clearInterval(interval);
+            window.location.href = '/'; // refresh to update user state (or call logout/login)
+          }
+        } catch (err) {
+          console.error('Polling error:', err);
+        }
+      }, 2000);
+      setTimeout(() => clearInterval(interval), 30000);
+    }
+  }, [user]);
 
   const showNotification = (message, type = 'info') => {
     setNotification({ show: true, message, type });
@@ -262,127 +292,131 @@ const App = () => {
 
   const isKeywordFound = useCallback((keyword) => fullResumeText.includes(keyword.toLowerCase()), [fullResumeText]);
 
-  // NEW: Puppeteer PDF generation function
-    const downloadPDFWithPuppeteer = async () => {
+  // PDF generation with authentication
+  const downloadPDFWithPuppeteer = async () => {
     const previewElement = previewRef.current;
     if (!previewElement) {
-        showNotification('Preview not found', 'error');
-        return;
+      showNotification('Preview not found', 'error');
+      return;
     }
 
     setIsGeneratingPDF(true);
-
-    // Clone the preview
     const clonePreview = previewElement.cloneNode(true);
     
+    // Collect styles (deduplicated)
     const styleTags = document.querySelectorAll('style');
     let uniqueStyles = '';
     const styleContents = new Set();
-    
     styleTags.forEach(style => {
-        const content = style.innerHTML;
-        if (!styleContents.has(content)) {
+      const content = style.innerHTML;
+      if (!styleContents.has(content)) {
         styleContents.add(content);
         uniqueStyles += content;
-        }
+      }
     });
     
     const linkTags = document.querySelectorAll('link[rel="stylesheet"]');
     let linkHtml = '';
     linkTags.forEach(link => {
-        if (link.href.includes('localhost') || link.href.includes('/static/')) {
+      if (link.href.includes('localhost') || link.href.includes('/static/')) {
         linkHtml += `<link rel="stylesheet" href="${link.href}">`;
-        }
+      }
     });
 
     const widthOverrides = `
-    <style>
-        /* Force full width and equal side margins */
-        .preview {
-        max-width: 100% !important;
-        width: 100% !important;
-        margin: 0 !important;
-        padding: 0 15px !important;   /* equal left & right padding */
-        box-sizing: border-box !important;
-        }
-        .resume-paper {
-        max-width: 100% !important;
-        width: 100% !important;
-        padding: 20px 20px !important;  /* equal left & right */
-        margin: 0 auto !important;
-        box-sizing: border-box !important;
-        }
-        body {
-        margin: 0 !important;
-        padding: 0 !important;
-        background: white;
-        }
-        @media print {
-        .section {
-            break-inside: avoid;        /* keep whole section together */
-            page-break-inside: avoid;
-        }
-        .entry {
-            break-inside: avoid;
-            page-break-inside: avoid;
-        }
-        h1, h2, h3, .section-title {
-            break-after: avoid;
-            page-break-after: avoid;
-        }
-        }
-    </style>
+      <style>
+        .preview { max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 0 15px !important; box-sizing: border-box !important; }
+        .resume-paper { max-width: 100% !important; width: 100% !important; padding: 20px 20px !important; margin: 0 auto !important; box-sizing: border-box !important; }
+        body { margin: 0 !important; padding: 0 !important; background: white; }
+        @media print { .section, .entry { break-inside: avoid; page-break-inside: avoid; } h1, h2, h3, .section-title { break-after: avoid; } }
+      </style>
     `;
 
     const fullHTML = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-        <meta charset="UTF-8">
-        <title>${resumeData.name || 'Resume'}</title>
-        ${linkHtml}
-        <style>${uniqueStyles}</style>
-        ${widthOverrides}
-        </head>
-        <body>
-        ${clonePreview.outerHTML}
-        </body>
-        </html>
+      <!DOCTYPE html>
+      <html>
+        <head><meta charset="UTF-8"><title>${resumeData.name || 'Resume'}</title>${linkHtml}<style>${uniqueStyles}</style>${widthOverrides}</head>
+        <body>${clonePreview.outerHTML}</body>
+      </html>
     `;
 
     try {
-        const response = await fetch('http://localhost:5000/api/generate-pdf', {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/generate-pdf', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ htmlContent: fullHTML })
-        });
+      });
 
-        if (!response.ok) {
+      if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'PDF generation failed');
-        }
+      }
 
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `${resumeData.name || 'Resume'}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-        
-        showNotification('PDF generated successfully', 'success');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${resumeData.name || 'Resume'}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      showNotification('PDF generated successfully', 'success');
     } catch (error) {
-        console.error('PDF generation error:', error);
-        showNotification(error.message || 'Failed to generate PDF', 'error');
+      console.error('PDF generation error:', error);
+      showNotification(error.message || 'Failed to generate PDF', 'error');
     } finally {
-        setIsGeneratingPDF(false);
+      setIsGeneratingPDF(false);
     }
-    };
+  };
 
+  // Show login/signup screen if not authenticated
+  if (loading) {
+    return <div className="flex justify-center items-center h-screen">Loading...</div>;
+  }
+
+  if (!user) {
+    return (
+      <div className="auth-container" style={{ maxWidth: '400px', margin: '80px auto', padding: '20px', background: 'white', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+        <h2 className="text-2xl font-bold mb-4">{isLogin ? 'Login' : 'Create Account'}</h2>
+        <input
+          type="email"
+          placeholder="Email"
+          value={loginEmail}
+          onChange={(e) => setLoginEmail(e.target.value)}
+          className="form-input"
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={loginPassword}
+          onChange={(e) => setLoginPassword(e.target.value)}
+          className="form-input"
+        />
+        <button
+          onClick={() => isLogin ? login(loginEmail, loginPassword) : signup(loginEmail, loginPassword)}
+          className="btn-primary w-full"
+        >
+          {isLogin ? 'Login' : 'Sign Up'}
+        </button>
+        <p className="mt-3 text-center text-sm">
+          {isLogin ? "Don't have an account? " : "Already have an account? "}
+          <button onClick={() => setIsLogin(!isLogin)} className="text-blue-600 underline">
+            {isLogin ? 'Sign up' : 'Login'}
+          </button>
+        </p>
+      </div>
+    );
+  }
+
+  // Main app (authenticated)
   return (
     <div className="app-container">
+      {/* Notification toast */}
       {notification.show && (
         <div className={`toast-notification ${notification.type}`}>
           {notification.type === 'success' && <CheckCircle size={16} style={{ marginRight: 8 }} />}
@@ -402,15 +436,25 @@ const App = () => {
         <div className="top-actions">
           <button onClick={saveResume} className="action-btn"><Save size={16} style={{ marginRight: 6 }} /> Save</button>
           <button onClick={loadResume} className="action-btn"><FolderOpen size={16} style={{ marginRight: 6 }} /> Load</button>
-          <button onClick={downloadPDFWithPuppeteer} className="action-btn primary" disabled={isGeneratingPDF}>
-            <FileDown size={16} style={{ marginRight: 6 }} />
-            {isGeneratingPDF ? 'Generating...' : 'PDF'}
-          </button>
+          {user.plan === 'pro' ? (
+            <button onClick={downloadPDFWithPuppeteer} disabled={isGeneratingPDF} className="action-btn primary">
+              <FileDown size={16} style={{ marginRight: 6 }} />
+              {isGeneratingPDF ? 'Generating...' : 'PDF'}
+            </button>
+          ) : (
+            <button onClick={upgradeToPro} className="action-btn primary">
+              Upgrade to Pro
+            </button>
+          )}
+          <button onClick={logout} className="action-btn" style={{ background: '#fee2e2', color: '#991b1b' }}>Logout</button>
+        </div>
+        <div style={{ fontSize: '0.8rem', marginLeft: 'auto', marginRight: '1rem' }}>
+          Plan: <strong>{user.plan === 'pro' ? 'Pro' : 'Free'}</strong>
         </div>
       </div>
 
       <div className="main-layout">
-        {/* LEFT PANEL - EDITOR */}
+        {/* LEFT PANEL - EDITOR (same as before) */}
         <div className="editor-panel no-print">
           {/* JD Analysis Card */}
           <div className="editor-card jd-card">
@@ -556,7 +600,7 @@ const App = () => {
           </div>
         </div>
 
-        {/* RIGHT PANEL - PREVIEW (with ref) */}
+        {/* RIGHT PANEL - PREVIEW */}
         <div className="preview latex-font" ref={previewRef}>
           <div className="resume-paper">
             <header className="resume-header">
