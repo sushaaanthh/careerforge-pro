@@ -1,12 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from './AuthContext';
 import { Search, FileText, Trash2, Loader2, Eye, ArrowLeft, FolderOpen, Briefcase, GraduationCap, Code } from 'lucide-react';
 
 const DashboardPage = ({ onLoadResume }) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [resumes, setResumes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    if (user && user.plan !== 'pro') {
+      navigate('/');
+    }
+  }, [user, navigate]);
 
   useEffect(() => {
     fetchResumes();

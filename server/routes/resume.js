@@ -1,25 +1,29 @@
 const express = require('express');
-const jwt = require('jsonwebtoken');
+const { verifyToken, requirePro } = require('../src/middleware/auth');
 const SavedResume = require('../src/models/Resume');
 
 const router = express.Router();
 
-const verifyToken = (req) => {
-  const auth = req.headers.authorization;
-  if (!auth) throw new Error('No token');
-  const token = auth.split(' ')[1];
-  return jwt.verify(token, process.env.JWT_SECRET).userId;
-};
+// All dashboard routes require Pro plan
+router.use(requirePro);
 
-// Save resume
+// Save a resume
 router.post('/save', async (req, res) => {
   try {
     const userId = verifyToken(req);
     const { name, resumeData, keywords, jobDescription } = req.body;
-    const saved = new SavedResume({ userId, name, data: resumeData, keywords });
+    
+    const saved = new SavedResume({
+      userId,
+      name,
+      data: resumeData,
+      keywords: keywords || [],
+      jobDescription: jobDescription || ''
+    });
     await saved.save();
     res.json({ id: saved._id });
   } catch (err) {
+    console.error('Save error:', err);
     res.status(401).json({ error: err.message });
   }
 });
@@ -35,7 +39,7 @@ router.get('/list', async (req, res) => {
   }
 });
 
-// Get one resume
+// Get a single resume
 router.get('/:id', async (req, res) => {
   try {
     const userId = verifyToken(req);
@@ -47,7 +51,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Delete resume
+// Delete a resume
 router.delete('/:id', async (req, res) => {
   try {
     const userId = verifyToken(req);
@@ -58,4 +62,5 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// ✅ CORRECT EXPORT – router directly, not inside an object
 module.exports = router;

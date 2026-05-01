@@ -5,7 +5,9 @@ const UserSchema = new mongoose.Schema({
   password: { type: String, required: true },
   plan: { type: String, default: 'free' },     // 'free' or 'pro'
   stripeCustomerId: { type: String, default: null },
+  resumesGenerated: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now }
 });
+
 
 module.exports = mongoose.model('User', UserSchema);

@@ -143,7 +143,7 @@ const User = require('./src/models/User');
 
 // --- PDF GENERATION AGENT ---
 app.post('/api/generate-pdf', async (req, res) => {
-    // 1. Verify JWT
+  // 1. Verify token
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'Missing token' });
 
@@ -155,55 +155,53 @@ app.post('/api/generate-pdf', async (req, res) => {
     return res.status(401).json({ error: 'Invalid token' });
   }
 
-  // 2. Check if user is Pro
+  // 2. Get user
   const user = await User.findById(userId);
-  if (!user || user.plan !== 'pro') {
-    return res.status(403).json({ error: 'Upgrade to Pro to download PDF' });
+  if (!user) return res.status(401).json({ error: 'User not found' });
+
+  // 3. Check free plan limit: allow if user is pro OR (free AND resumesGenerated < 1)
+  if (user.plan === 'free' && user.resumesGenerated >= 1) {
+    return res.status(403).json({
+      error: 'Free plan allows only 1 resume download. Upgrade to Pro for unlimited.'
+    });
   }
-    const { htmlContent } = req.body;
 
-    if (!htmlContent) {
-        return res.status(400).json({ error: "Missing HTML content." });
+  // 4. PDF generation logic (same as before)
+  const { htmlContent } = req.body;
+  if (!htmlContent) {
+    return res.status(400).json({ error: 'Missing HTML content' });
+  }
+
+  try {
+    const browser = await puppeteer.launch({
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium',
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+    });
+    const page = await browser.newPage();
+    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '12mm', right: '12mm', bottom: '12mm', left: '12mm' },
+      preferCSSPageSize: true
+    });
+    await browser.close();
+
+    // 5. Increment counter ONLY for free users, and ONLY after successful PDF generation
+    if (user.plan === 'free') {
+      user.resumesGenerated += 1;
+      await user.save();
     }
 
-    try {
-        const browser = await puppeteer.launch({
-            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium',
-            args: [
-                '--no-sandbox', 
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage'
-            ]
-        });
+    // 6. Send PDF
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.end(pdfBuffer);
 
-        const page = await browser.newPage();
-
-        // Load the HTML content from the frontend
-        await page.setContent(htmlContent, { 
-            waitUntil: 'networkidle0' // Wait until all fonts/images are fully loaded
-        });
-
-        const pdfBuffer = await page.pdf({
-            format: 'A4',
-            printBackground: true, // Ensures CSS background colors/images are rendered
-            margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '25mm' },
-            preferCSSPageSize: true
-        });
-
-        await browser.close();
-
-        // Send the PDF file back to the client
-        res.set({
-            'Content-Type': 'application/pdf',
-            'Content-Length': pdfBuffer.length
-        });
-        
-        res.end(pdfBuffer);
-
-    } catch (error) {
-        console.error("PDF Generation Error:", error);
-        res.status(500).json({ error: "Failed to generate PDF document." });
-    }
+  } catch (error) {
+    console.error('PDF Generation Error:', error);
+    res.status(500).json({ error: 'Failed to generate PDF document.' });
+  }
 });
 
 app.post('/api/generate-cover-letter', async (req, res) => {
