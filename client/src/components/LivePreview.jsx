@@ -1,4 +1,5 @@
 import React from 'react';
+import { apiUrl, backendOfflineMessage, getErrorMessage, isNetworkError, parseErrorBody } from '../utils/api';
 
 const LivePreview = ({ resumeData }) => {
 
@@ -71,20 +72,20 @@ const LivePreview = ({ resumeData }) => {
     `;
 
     try {
-      const response = await fetch('http://localhost:5000/api/generate-pdf', {
+      const response = await fetch(apiUrl('/api/generate-pdf'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ htmlContent })
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = await parseErrorBody(response);
         console.error('[PDF] API failed', {
           status: response.status,
           statusText: response.statusText,
           body: errorData
         });
-        alert(errorData?.details || errorData?.error || `PDF API failed: ${response.status} ${response.statusText}`);
+        alert(getErrorMessage(errorData, `PDF API failed: ${response.status} ${response.statusText}`));
         return;
       }
 
@@ -103,7 +104,7 @@ const LivePreview = ({ resumeData }) => {
         stack: error?.stack,
         name: error?.name
       });
-      alert('PDF download failed. Check browser console and server logs.');
+      alert(isNetworkError(error) ? backendOfflineMessage : 'PDF download failed. Check browser console and server logs.');
     }
   };
 

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { apiUrl, backendOfflineMessage, getErrorMessage, isHighDemandError, isNetworkError, parseErrorBody } from '../utils/api';
 
 const CoverLetterGenerator = ({ resumeData, fullName, resumeText }) => {
   const friendlyBusyMessage = 'The AI is currently busy. Please wait a moment and try again.';
@@ -14,7 +15,7 @@ const CoverLetterGenerator = ({ resumeData, fullName, resumeText }) => {
     setError('');
     setCopied(false);
     try {
-      const res = await fetch('http://localhost:5000/api/generate-cover-letter', {
+      const res = await fetch(apiUrl('/api/generate-cover-letter'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -25,20 +26,64 @@ const CoverLetterGenerator = ({ resumeData, fullName, resumeText }) => {
           }
         })
       });
-      const json = await res.json();
+      const json = await parseErrorBody(res);
       if (res.ok) {
         setCoverLetter(json.coverLetter || '');
         return;
       }
 
-      const serverMessage = String(json?.error || '');
+      const serverMessage = getErrorMessage(json, 'Failed to generate cover letter.');
       setError(
-        res.status >= 500 || /high demand|busy|try again/i.test(serverMessage)
+        res.status >= 500 || isHighDemandError(serverMessage)
           ? friendlyBusyMessage
-          : serverMessage || 'Failed to generate cover letter.'
+          : serverMessage
       );
+    } catch (error) {
+      setError(isNetworkError(error) ? backendOfflineMessage : 'Failed to generate cover letter. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDownloadCoverLetterPdf = async () => {
+    if (!coverLetter) return;
+
+    const htmlContent = `
+      <html>
+        <head>
+          <style>
+            body { font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.8; color: #1a1a1a; }
+            pre { white-space: pre-wrap; }
+          </style>
+        </head>
+        <body>
+          ${coverLetter.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+        </body>
+      </html>
+    `;
+
+    try {
+      const res = await fetch(apiUrl('/api/generate-pdf'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ htmlContent })
+      });
+
+      if (!res.ok) {
+        const errorBody = await parseErrorBody(res);
+        setError(getErrorMessage(errorBody, 'Failed to download PDF'));
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `cover-letter-${new Date().toISOString().split('T')[0]}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      setError(isNetworkError(error) ? backendOfflineMessage : 'Failed to download PDF');
     }
   };
 
@@ -100,36 +145,7 @@ const CoverLetterGenerator = ({ resumeData, fullName, resumeText }) => {
         <div style={{ marginTop: 12, textAlign: 'center' }}>
           <button 
             className="cf-btn" 
-            onClick={() => {
-              const htmlContent = `
-                <html>
-                  <head>
-                    <style>
-                      body { font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.8; color: #1a1a1a; }
-                      pre { white-space: pre-wrap; }
-                    </style>
-                  </head>
-                  <body>
-                    ${coverLetter.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
-                  </body>
-                </html>
-              `;
-              fetch('http://localhost:5000/api/generate-pdf', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ htmlContent })
-              })
-              .then(res => res.blob())
-              .then(blob => {
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `cover-letter-${new Date().toISOString().split('T')[0]}.pdf`;
-                a.click();
-                window.URL.revokeObjectURL(url);
-              })
-              .catch(err => setError('Failed to download PDF'));
-            }}
+            onClick={handleDownloadCoverLetterPdf}
             style={{ marginTop: 12 }}
           >
             📄 Download Cover Letter as PDF

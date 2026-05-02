@@ -3,6 +3,7 @@ import './App.css';
 import LivePreview from './components/LivePreview';
 import Dashboard from './components/Dashboard';
 import CoverLetterGenerator from './components/CoverLetterGenerator';
+import { apiUrl, backendOfflineMessage, getErrorMessage, isHighDemandError, isNetworkError, parseErrorBody } from './utils/api';
 
 const createEmptyResumeData = () => ({
     name: '',
@@ -108,23 +109,23 @@ const App = () => {
     if (!jobDescription.trim()) return;
     setIsAnalyzingJD(true);
     try {
-        const response = await fetch("http://localhost:5000/api/analyze-jd", {
+        const response = await fetch(apiUrl('/api/analyze-jd'), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ jdText: jobDescription })
         });
-        const data = await response.json();
+        const data = await parseErrorBody(response);
         
         if (response.ok && data.keywords) {
             setTargetKeywords(data.keywords);
         } else {
-            const message = String(data?.error || 'Unknown error');
-            alert(response.status >= 500 || /high demand|busy|try again/i.test(message)
+            const message = getErrorMessage(data, 'Keyword extraction failed.');
+            alert(response.status >= 500 || isHighDemandError(message)
                 ? friendlyAiBusyMessage
                 : `Error: ${message}`);
         }
     } catch (error) {
-        alert(friendlyAiBusyMessage);
+        alert(isNetworkError(error) ? backendOfflineMessage : friendlyAiBusyMessage);
     } finally {
         setIsAnalyzingJD(false);
     }
@@ -134,22 +135,22 @@ const App = () => {
         if (!text || text.trim() === '') return;
         setIsOptimizing({ section, index });
         try {
-            const response = await fetch("http://localhost:5000/api/optimize", {
+            const response = await fetch(apiUrl('/api/optimize'), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ text, sectionType: section, targetKeywords })
             });
-            const data = await response.json();
+            const data = await parseErrorBody(response);
             if (response.ok && data.optimizedText) {
                 updateEntry(section, index, 'desc', data.optimizedText);
             } else {
-                const message = String(data?.error || 'Optimization failed.');
-                alert(response.status >= 500 || /high demand|busy|try again/i.test(message)
+                const message = getErrorMessage(data, 'Optimization failed.');
+                alert(response.status >= 500 || isHighDemandError(message)
                     ? friendlyAiBusyMessage
                     : message);
             }
         } catch (error) {
-            alert(friendlyAiBusyMessage);
+            alert(isNetworkError(error) ? backendOfflineMessage : friendlyAiBusyMessage);
         } finally {
             setIsOptimizing({ section: null, index: null });
         }
