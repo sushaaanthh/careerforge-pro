@@ -11,7 +11,10 @@ const Resume = require('./src/models/models');
 const app = express();
 
 app.use(cors({
-        origin: ['https://careerforge-pro-alpha.vercel.app', 'http://localhost:3005'],
+    origin: [
+        'https://careerforge-f3cw2jau8-sushanth-sapares-projects.vercel.app',
+        'https://careerforge-pro-alpha.vercel.app'
+    ],
         credentials: true,
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
