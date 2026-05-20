@@ -3,7 +3,7 @@ import './App.css';
 import LivePreview from './components/LivePreview';
 import Dashboard from './components/Dashboard';
 import CoverLetterGenerator from './components/CoverLetterGenerator';
-import { apiUrl, backendOfflineMessage, getErrorMessage, isHighDemandError, isNetworkError, parseErrorBody } from './utils/api';
+import { API_BASE_URL, backendOfflineMessage, getErrorMessage, isHighDemandError, isNetworkError, parseErrorBody } from './utils/api';
 
 const createEmptyResumeData = () => ({
     name: '',
@@ -109,7 +109,7 @@ const App = () => {
     if (!jobDescription.trim()) return;
     setIsAnalyzingJD(true);
     try {
-        const response = await fetch(apiUrl('/api/analyze-jd'), {
+        const response = await fetch(`${API_BASE_URL}/api/analyze-jd`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ jdText: jobDescription })
@@ -135,7 +135,7 @@ const App = () => {
         if (!text || text.trim() === '') return;
         setIsOptimizing({ section, index });
         try {
-            const response = await fetch(apiUrl('/api/optimize'), {
+            const response = await fetch(`${API_BASE_URL}/api/optimize`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ text, sectionType: section, targetKeywords })

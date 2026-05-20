@@ -1,5 +1,9 @@
-const API_URL = 'https://careerforge-pro-ez6o.onrender.com';
-const normalizedApiBase = String(API_URL).trim().replace(/\/$/, '');
+export const isProduction = window.location.hostname !== 'localhost';
+export const API_BASE_URL = isProduction
+  ? 'https://careerforge-pro-backend.onrender.com'
+  : `http://${window.location.hostname}:5000`;
+
+const normalizedApiBase = String(API_BASE_URL).trim().replace(/\/$/, '');
 
 export const apiUrl = (path) => {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;

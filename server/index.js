@@ -11,12 +11,21 @@ const Resume = require('./src/models/models');
 const app = express();
 
 app.use(cors({
-    origin: [
-        'https://careerforge-f3cw2jau8-sushanth-sapares-projects.vercel.app',
-        'https://careerforge-pro-alpha.vercel.app'
-    ],
-        credentials: true,
-        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+    origin: (origin, callback) => {
+        const productionOrigins = [
+            'https://careerforge-f3cw2jau8-sushanth-sapares-projects.vercel.app',
+            'https://careerforge-pro-alpha.vercel.app'
+        ];
+
+        const isLocalOrigin = !origin || /^http:\/\/(localhost|127\.0\.0\.1|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})(:\d+)?$/.test(origin);
+        if (isLocalOrigin || productionOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
 app.use(helmet());
 
