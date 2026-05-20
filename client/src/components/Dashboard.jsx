@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { apiUrl } from '../utils/api';
 
 const Dashboard = ({ userEmail, onLoadResume }) => {
   const [data, setData] = useState({ user: null, files: [] });
@@ -31,8 +32,8 @@ const Dashboard = ({ userEmail, onLoadResume }) => {
 
     try {
       const [meResponse, resumesResponse] = await Promise.all([
-        fetch(`http://localhost:5000/api/me${emailQuery}`),
-        fetch(`http://localhost:5000/api/resumes${emailQuery}`)
+        fetch(apiUrl(`/api/me${emailQuery}`)),
+        fetch(apiUrl(`/api/resumes${emailQuery}`))
       ]);
 
       const meJson = await meResponse.json().catch(() => ({}));
@@ -94,7 +95,7 @@ const Dashboard = ({ userEmail, onLoadResume }) => {
     setIsUpgrading(true);
     setCheckoutStatus('');
     try {
-      const res = await fetch('http://localhost:5000/api/create-checkout-session', {
+      const res = await fetch(apiUrl('/api/create-checkout-session'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: userEmail, email: userEmail })

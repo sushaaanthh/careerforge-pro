@@ -1,5 +1,5 @@
-const rawApiBase = String(process.env.REACT_APP_API_BASE_URL || '').trim();
-const normalizedApiBase = rawApiBase.replace(/\/$/, '');
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const normalizedApiBase = String(API_URL).trim().replace(/\/$/, '');
 
 export const apiUrl = (path) => {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
